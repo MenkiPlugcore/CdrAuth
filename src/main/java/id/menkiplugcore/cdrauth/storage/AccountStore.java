@@ -6,6 +6,9 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -51,6 +54,20 @@ public final class AccountStore {
             }
         }
         return Optional.empty();
+    }
+
+    public synchronized List<AccountRecord> listAll() {
+        ConfigurationSection accounts = data.getConfigurationSection("accounts");
+        if (accounts == null) {
+            return List.of();
+        }
+
+        List<AccountRecord> records = new ArrayList<>();
+        for (String key : accounts.getKeys(false)) {
+            read(key).ifPresent(records::add);
+        }
+        records.sort(Comparator.comparing(AccountRecord::username, String.CASE_INSENSITIVE_ORDER));
+        return List.copyOf(records);
     }
 
     public synchronized Optional<AccountRecord> findByIpHmac(String ipHmac) {
