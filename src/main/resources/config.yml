@@ -1,5 +1,5 @@
 security:
-  # Numeric PIN length used by both Java and Bedrock UI.
+  # Numeric PIN length used by Java private-chat input and Bedrock UI.
   pin-length: 6
 
   # Kick after this many wrong PIN attempts in one login session.
@@ -22,16 +22,9 @@ security:
   audit-log-enabled: true
 
   audit:
-    # Rotate security.log after it reaches this size.
     max-file-size-kb: 1024
-
-    # Keep security.log.1 ... security.log.N after rotation.
     history-files: 3
-
-    # Maximum entries exposed to one Admin GUI audit query.
     viewer-max-entries: 500
-
-    # Maximum log lines scanned by one viewer query across active/rotated files.
     viewer-scan-lines: 5000
 
   change-pin:
@@ -40,24 +33,15 @@ security:
     require-trusted-ip: true
 
   cooldown:
-    # Wrong PIN attempts receive a progressive delay: base * attempt, capped by max.
     base-seconds: 2
     max-seconds: 15
 
   bruteforce:
-    # Failed PIN attempts survive reconnects in memory for this rolling window.
     window-seconds: 600
-
-    # Lock account+IP after this many wrong PINs inside the window.
     max-failures: 10
-
-    # Temporary lock duration after the brute-force threshold is reached.
     lockout-seconds: 300
 
-  # A different IP may still log in after entering the correct PIN, but it is session-only.
-  # The trusted IP is never replaced automatically unless an admin runs /cdrauth resetip.
-
-  # Delay before reopening the Java GUI if the player closes it before authenticating.
+  # Delay before reopening the Bedrock form after it is closed during authentication.
   reopen-delay-ticks: 8
 
 messages:
@@ -70,6 +54,9 @@ messages:
   registered: '&aRegistrasi berhasil. IP ini sekarang menjadi trusted IP akun.'
   logged-in: '&aLogin berhasil. Selamat datang!'
   logged-in-new-ip: '&aPIN benar. &eLogin sesi ini diizinkan, tetapi IP baru tidak disimpan sebagai trusted IP.'
+
+  # Java Edition PIN input. The typed chat message is cancelled and never broadcast.
+  java-chat-pin-prompt: '&7Ketik PIN &b%length% digit &7langsung di chat. &8(Pesan PIN tidak akan dipublikasikan.)'
 
   # Account management flows.
   ip-rebind-login-start: '&eTrusted IP akun telah di-reset. &7Masukkan PIN lama untuk mengikat IP koneksi ini sebagai trusted IP baru.'
@@ -110,6 +97,7 @@ messages:
   account-collision: '&cIP ini sudah terikat ke akun &f%player%&c. Gunakan akun tersebut atau hubungi admin untuk unregister/reset IP.'
   no-address: '&cAlamat IP koneksi tidak dapat dibaca. Login ditolak demi keamanan.'
 
+  # Bedrock native form titles / legacy GUI strings retained for compatibility.
   gui-login-title: '&0CdrAuth • Login'
   gui-register-title: '&0CdrAuth • Register'
   gui-confirm-title: '&0CdrAuth • Confirm PIN'
@@ -121,7 +109,7 @@ messages:
   gui-pin-display: '&bPIN: &f%pin%'
   gui-backspace: '&e⌫ Hapus'
   gui-submit: '&a✔ Konfirmasi'
-  gui-waiting: '&7Klik angka untuk memasukkan PIN.'
+  gui-waiting: '&7Masukkan PIN.'
 
   admin-no-permission: '&cKamu tidak memiliki izin.'
   admin-usage: '&7Gunakan: &f/cdrauth admin [player|uuid]&7, &f/cdrauth audit [player|uuid]&7, atau &f/cdrauth <status|resetip|resetpin|unreg> <player|uuid>'
@@ -171,7 +159,7 @@ messages:
   admin-gui-confirm-resetpin: '&7Paksa reset PIN akun &f%player%&7?'
   admin-gui-confirm-unreg: '&cUnregister akun &f%player%&c? Data auth akan dihapus.'
 
-  # v0.6.0 Audit Log viewer.
+  # Audit Log viewer.
   admin-gui-audit: '&bSecurity Audit Log'
   admin-gui-audit-global-lore: '&7Lihat event security terbaru semua akun.'
   admin-gui-audit-player-lore: '&7Lihat history security akun &f%player%&7.'
