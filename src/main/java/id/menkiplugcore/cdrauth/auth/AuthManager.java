@@ -6,9 +6,9 @@ import id.menkiplugcore.cdrauth.storage.AccountStore;
 import org.bukkit.entity.Player;
 
 import java.net.InetSocketAddress;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.security.MessageDigest;
-import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -40,14 +40,37 @@ public final class AuthManager {
             return false;
         }
 
-        if (account.isPresent()) {
-            boolean strict = plugin.getConfig().getBoolean("security.strict-ip-binding", true);
-            if (strict && !ipHasher.matches(ip, account.get().ipHmac())) {
-                player.kick(plugin.component(plugin.msg("messages.ip-mismatch")));
+        String currentIpHmac = ipHasher.hash(ip);
+        boolean uniqueIpOwnership = plugin.getConfig().getBoolean("security.unique-ip-ownership", true);
+        if (uniqueIpOwnership) {
+            Optional<AccountRecord> ipOwner = store.findByIpHmac(currentIpHmac);
+            if (ipOwner.isPresent() && !ipOwner.get().uuid().equals(player.getUniqueId())) {
+                player.kick(plugin.component(plugin.msg(
+                        "messages.account-collision",
+                        "%player%", ipOwner.get().username()
+                )));
                 return false;
             }
+        }
+
+        if (account.isPresent()) {
+            AccountRecord record = account.get();
+            boolean trustedIp = ipHasher.matches(ip, record.ipHmac());
+            boolean trustedIpAutoLogin = plugin.getConfig().getBoolean("security.trusted-ip-auto-login", true);
+
+            if (trustedIp && trustedIpAutoLogin) {
+                sessions.put(player.getUniqueId(), new AuthSession(AuthStage.AUTHENTICATED));
+                store.updateUsername(player.getUniqueId(), player.getName());
+                player.sendMessage(plugin.prefix() + plugin.msg("messages.auto-login"));
+                return true;
+            }
+
             sessions.put(player.getUniqueId(), new AuthSession(AuthStage.LOGIN));
-            player.sendMessage(plugin.prefix() + plugin.msg("messages.login-start"));
+            if (trustedIp) {
+                player.sendMessage(plugin.prefix() + plugin.msg("messages.login-start"));
+            } else {
+                player.sendMessage(plugin.prefix() + plugin.msg("messages.new-ip-login-start"));
+            }
         } else {
             sessions.put(player.getUniqueId(), new AuthSession(AuthStage.REGISTER));
             player.sendMessage(plugin.prefix() + plugin.msg("messages.register-start", "%length%", Integer.toString(pinLength())));
@@ -91,13 +114,24 @@ public final class AuthManager {
             return AuthResult.kick(plugin.msg("messages.no-address"));
         }
 
+        String currentIpHmac = ipHasher.hash(ip);
+        if (plugin.getConfig().getBoolean("security.unique-ip-ownership", true)) {
+            Optional<AccountRecord> ipOwner = store.findByIpHmac(currentIpHmac);
+            if (ipOwner.isPresent() && !ipOwner.get().uuid().equals(player.getUniqueId())) {
+                return AuthResult.kick(plugin.msg(
+                        "messages.account-collision",
+                        "%player%", ipOwner.get().username()
+                ));
+            }
+        }
+
         PinHasher.Hash hashed = pinHasher.hash(pin);
         AccountRecord record = new AccountRecord(
                 player.getUniqueId(),
                 player.getName(),
                 hashed.salt(),
                 hashed.hash(),
-                ipHasher.hash(ip),
+                currentIpHmac,
                 System.currentTimeMillis()
         );
         store.register(record);
@@ -113,9 +147,16 @@ public final class AuthManager {
             return AuthResult.next(plugin.msg("messages.register-start", "%length%", Integer.toString(pinLength())));
         }
 
-        if (pinHasher.verify(pin, account.get().pinSalt(), account.get().pinHash())) {
+        AccountRecord record = account.get();
+        if (pinHasher.verify(pin, record.pinSalt(), record.pinHash())) {
             session.stage(AuthStage.AUTHENTICATED);
             store.updateUsername(player.getUniqueId(), player.getName());
+
+            String ip = currentIp(player);
+            boolean trustedIp = ip != null && ipHasher.matches(ip, record.ipHmac());
+            if (!trustedIp) {
+                return AuthResult.success(plugin.msg("messages.logged-in-new-ip"));
+            }
             return AuthResult.success(plugin.msg("messages.logged-in"));
         }
 
