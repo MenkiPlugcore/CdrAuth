@@ -8,6 +8,10 @@ public record AccountRecord(
         String pinSalt,
         String pinHash,
         String ipHmac,
-        long createdAt
+        long createdAt,
+        boolean pinResetRequired
 ) {
+    public boolean hasTrustedIp() {
+        return ipHmac != null && !ipHmac.isBlank();
+    }
 }
