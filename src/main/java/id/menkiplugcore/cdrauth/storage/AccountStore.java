@@ -53,6 +53,21 @@ public final class AccountStore {
         return Optional.empty();
     }
 
+    public synchronized Optional<AccountRecord> findByIpHmac(String ipHmac) {
+        ConfigurationSection accounts = data.getConfigurationSection("accounts");
+        if (accounts == null || ipHmac == null || ipHmac.isBlank()) {
+            return Optional.empty();
+        }
+
+        for (String key : accounts.getKeys(false)) {
+            String stored = accounts.getString(key + ".ip-hmac");
+            if (ipHmac.equals(stored)) {
+                return read(key);
+            }
+        }
+        return Optional.empty();
+    }
+
     public synchronized void register(AccountRecord record) {
         String base = "accounts." + record.uuid();
         data.set(base + ".username", record.username());
