@@ -6,11 +6,11 @@
 
     <groupId>id.menkiplugcore</groupId>
     <artifactId>CdrAuth</artifactId>
-    <version>0.6.1</version>
+    <version>0.6.2</version>
     <packaging>jar</packaging>
 
     <name>CdrAuth</name>
-    <description>Crossplay typed-GUI PIN authentication with security hardening, account management, player PIN changes, admin GUI, and audit history.</description>
+    <description>Crossplay PIN authentication with private Java chat input, native Bedrock forms, security hardening, account management, admin GUI, and audit history.</description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
