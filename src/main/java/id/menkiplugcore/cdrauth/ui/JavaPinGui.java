@@ -150,6 +150,8 @@ public final class JavaPinGui implements Listener {
         return switch (authManager.stage(player.getUniqueId())) {
             case REGISTER -> plugin.msg("messages.gui-register-title");
             case CONFIRM_REGISTER -> plugin.msg("messages.gui-confirm-title");
+            case RESET_PIN -> plugin.msg("messages.gui-reset-pin-title");
+            case CONFIRM_RESET_PIN -> plugin.msg("messages.gui-confirm-reset-pin-title");
             case LOGIN, AUTHENTICATED -> plugin.msg("messages.gui-login-title");
         };
     }
