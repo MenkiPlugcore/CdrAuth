@@ -21,6 +21,19 @@ security:
   # security.log contains security events and short HMAC IP fingerprints, never plaintext IPs.
   audit-log-enabled: true
 
+  audit:
+    # Rotate security.log after it reaches this size.
+    max-file-size-kb: 1024
+
+    # Keep security.log.1 ... security.log.N after rotation.
+    history-files: 3
+
+    # Maximum entries exposed to one Admin GUI audit query.
+    viewer-max-entries: 500
+
+    # Maximum log lines scanned by one viewer query across active/rotated files.
+    viewer-scan-lines: 5000
+
   change-pin:
     # Recommended: only allow /pin from the account's trusted IP.
     # The old PIN must still be verified even when this is false.
@@ -111,7 +124,7 @@ messages:
   gui-waiting: '&7Klik angka untuk memasukkan PIN.'
 
   admin-no-permission: '&cKamu tidak memiliki izin.'
-  admin-usage: '&7Gunakan: &f/cdrauth admin [player|uuid] &7atau &f/cdrauth <status|resetip|resetpin|unreg> <player|uuid>'
+  admin-usage: '&7Gunakan: &f/cdrauth admin [player|uuid]&7, &f/cdrauth audit [player|uuid]&7, atau &f/cdrauth <status|resetip|resetpin|unreg> <player|uuid>'
   admin-not-found: '&cAkun tidak ditemukan.'
   admin-unregistered: '&aAkun &f%player% &aberhasil di-unregister. Player harus register ulang.'
   admin-ip-reset: '&aTrusted IP akun &f%player% &aberhasil di-reset. PIN lama tetap berlaku dan akan dipakai untuk bind IP baru.'
@@ -126,7 +139,7 @@ messages:
   admin-status-session: '&7Session: &f%session%'
   admin-status-created: '&7Created: &f%created%'
 
-  # v0.5.0 Admin GUI.
+  # Admin GUI.
   admin-gui-player-only: '&cAdmin GUI hanya dapat dibuka oleh player.'
   admin-gui-list-title: '&0CdrAuth Admin • %page%/%pages%'
   admin-gui-detail-title: '&0CdrAuth • %player%'
@@ -157,3 +170,14 @@ messages:
   admin-gui-confirm-resetip: '&7Reset trusted IP akun &f%player%&7?'
   admin-gui-confirm-resetpin: '&7Paksa reset PIN akun &f%player%&7?'
   admin-gui-confirm-unreg: '&cUnregister akun &f%player%&c? Data auth akan dihapus.'
+
+  # v0.6.0 Audit Log viewer.
+  admin-gui-audit: '&bSecurity Audit Log'
+  admin-gui-audit-global-lore: '&7Lihat event security terbaru semua akun.'
+  admin-gui-audit-player-lore: '&7Lihat history security akun &f%player%&7.'
+  admin-audit-title: '&0Audit • %target% • %event%'
+  admin-audit-filter: '&eFilter: &f%event%'
+  admin-audit-filter-lore: '&7Klik untuk pindah ke jenis event berikutnya.'
+  admin-audit-summary: '&b%entries% Event &8• &7%page%/%pages%'
+  admin-audit-refresh-lore: '&7Klik untuk membaca ulang security.log.'
+  admin-audit-unavailable: '&cAudit viewer tidak tersedia. Periksa console untuk error file security.log.'
