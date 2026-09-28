@@ -6,11 +6,11 @@
 
     <groupId>id.menkiplugcore</groupId>
     <artifactId>CdrAuth</artifactId>
-    <version>0.1.0</version>
+    <version>0.1.1</version>
     <packaging>jar</packaging>
 
     <name>CdrAuth</name>
-    <description>Crossplay GUI PIN authentication with strict per-account IP binding.</description>
+    <description>Crossplay GUI PIN authentication with trusted-IP auto login and collision protection.</description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
