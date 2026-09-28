@@ -15,6 +15,8 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 public final class AuthManager {
+    private static final String PIN_CHANGE_SCOPE = ":pinchange";
+
     private final CdrAuthPlugin plugin;
     private final AccountStore store;
     private final PinHasher pinHasher;
@@ -156,6 +158,9 @@ public final class AuthManager {
                 yield AuthResult.next(plugin.msg("messages.confirm-new-pin"));
             }
             case CONFIRM_RESET_PIN -> finishPinReset(player, session, pin);
+            case CHANGE_PIN_VERIFY -> finishChangePinVerification(player, session, pin);
+            case CHANGE_PIN_NEW -> acceptChangedPin(player, session, pin);
+            case CONFIRM_CHANGE_PIN -> finishChangePin(player, session, pin);
             case AUTHENTICATED -> AuthResult.success("");
         };
     }
@@ -307,6 +312,100 @@ public final class AuthManager {
         return AuthResult.success(plugin.msg("messages.pin-reset-success"));
     }
 
+    private AuthResult finishChangePinVerification(Player player, AuthSession session, String pin) {
+        Optional<AccountRecord> account = store.find(player.getUniqueId());
+        String ip = currentIp(player);
+        if (account.isEmpty() || ip == null) {
+            session.stage(AuthStage.AUTHENTICATED);
+            return AuthResult.success(plugin.msg("messages.change-pin-account-unavailable"));
+        }
+
+        AccountRecord record = account.get();
+        String currentIpHmac = ipHasher.hash(ip);
+        String scopedIpKey = currentIpHmac + PIN_CHANGE_SCOPE;
+        String ipFingerprint = shortFingerprint(currentIpHmac);
+
+        long activeLockSeconds = remainingLockSeconds(player.getUniqueId(), scopedIpKey);
+        if (activeLockSeconds > 0) {
+            audit("CHANGE_PIN_LOCKED", player, ipFingerprint, "remainingSeconds=" + activeLockSeconds);
+            return AuthResult.kick(plugin.msg(
+                    "messages.change-pin-locked",
+                    "%seconds%", Long.toString(activeLockSeconds)
+            ));
+        }
+
+        if (pinHasher.verify(pin, record.pinSalt(), record.pinHash())) {
+            clearFailureState(player.getUniqueId(), scopedIpKey);
+            session.firstPin(null);
+            session.stage(AuthStage.CHANGE_PIN_NEW);
+            audit("CHANGE_PIN_OLD_VERIFIED", player, ipFingerprint, "verified=true");
+            return AuthResult.next(plugin.msg("messages.change-pin-new", "%length%", Integer.toString(pinLength())));
+        }
+
+        int attempts = session.incrementAttempts();
+        int maxAttempts = Math.max(1, plugin.getConfig().getInt("security.max-attempts", 5));
+        long globalLockSeconds = registerFailure(player.getUniqueId(), scopedIpKey);
+        audit("CHANGE_PIN_OLD_WRONG", player, ipFingerprint, "sessionAttempt=" + attempts + "/" + maxAttempts);
+
+        if (globalLockSeconds > 0) {
+            audit("CHANGE_PIN_BRUTE_FORCE_LOCK", player, ipFingerprint, "lockSeconds=" + globalLockSeconds);
+            return AuthResult.kick(plugin.msg(
+                    "messages.change-pin-locked",
+                    "%seconds%", Long.toString(globalLockSeconds)
+            ));
+        }
+
+        if (attempts >= maxAttempts) {
+            audit("CHANGE_PIN_ATTEMPT_LIMIT", player, ipFingerprint, "attempts=" + attempts);
+            return AuthResult.kick(plugin.msg("messages.change-pin-too-many-attempts"));
+        }
+
+        long cooldown = progressiveCooldownMillis(attempts);
+        session.applyCooldown(cooldown);
+        long cooldownSeconds = Math.max(1L, (cooldown + 999L) / 1000L);
+        return AuthResult.retry(plugin.msg(
+                "messages.change-pin-old-wrong",
+                "%remaining%", Integer.toString(maxAttempts - attempts),
+                "%seconds%", Long.toString(cooldownSeconds)
+        ));
+    }
+
+    private AuthResult acceptChangedPin(Player player, AuthSession session, String pin) {
+        Optional<AccountRecord> account = store.find(player.getUniqueId());
+        if (account.isEmpty()) {
+            session.stage(AuthStage.AUTHENTICATED);
+            return AuthResult.success(plugin.msg("messages.change-pin-account-unavailable"));
+        }
+
+        AccountRecord record = account.get();
+        if (pinHasher.verify(pin, record.pinSalt(), record.pinHash())) {
+            return AuthResult.retry(plugin.msg("messages.change-pin-same"));
+        }
+
+        session.firstPin(pin);
+        session.stage(AuthStage.CONFIRM_CHANGE_PIN);
+        return AuthResult.next(plugin.msg("messages.change-pin-confirm"));
+    }
+
+    private AuthResult finishChangePin(Player player, AuthSession session, String pin) {
+        byte[] first = session.firstPin() == null ? new byte[0] : session.firstPin().getBytes(StandardCharsets.UTF_8);
+        byte[] second = pin.getBytes(StandardCharsets.UTF_8);
+        if (!MessageDigest.isEqual(first, second)) {
+            session.firstPin(null);
+            session.stage(AuthStage.CHANGE_PIN_NEW);
+            session.applyCooldown(progressiveCooldownMillis(1));
+            audit("CHANGE_PIN_CONFIRM_MISMATCH", player, fingerprint(player), "confirmationMismatch=true");
+            return AuthResult.retry(plugin.msg("messages.change-pin-mismatch"));
+        }
+
+        PinHasher.Hash hashed = pinHasher.hash(pin);
+        store.updatePin(player.getUniqueId(), hashed.salt(), hashed.hash());
+        session.firstPin(null);
+        session.stage(AuthStage.AUTHENTICATED);
+        audit("CHANGE_PIN_SUCCESS", player, fingerprint(player), "pinReplaced=true");
+        return AuthResult.success(plugin.msg("messages.change-pin-success"));
+    }
+
     public void prepareRegistration(Player player) {
         AuthSession session = new AuthSession(AuthStage.REGISTER);
         sessions.put(player.getUniqueId(), session);
@@ -349,6 +448,59 @@ public final class AuthManager {
         return true;
     }
 
+    public boolean beginPinChange(Player player) {
+        Optional<AccountRecord> account = store.find(player.getUniqueId());
+        if (account.isEmpty()) {
+            player.sendMessage(plugin.prefix() + plugin.msg("messages.change-pin-not-registered"));
+            return false;
+        }
+
+        if (needsAuthentication(player.getUniqueId())) {
+            player.sendMessage(plugin.prefix() + plugin.msg("messages.change-pin-not-authenticated"));
+            return false;
+        }
+
+        AccountRecord record = account.get();
+        if (record.pinResetRequired()) {
+            player.sendMessage(plugin.prefix() + plugin.msg("messages.change-pin-reset-pending"));
+            return false;
+        }
+        if (!record.hasTrustedIp()) {
+            player.sendMessage(plugin.prefix() + plugin.msg("messages.change-pin-no-trusted-ip"));
+            return false;
+        }
+
+        String ip = currentIp(player);
+        if (ip == null) {
+            player.sendMessage(plugin.prefix() + plugin.msg("messages.no-address"));
+            return false;
+        }
+
+        String currentIpHmac = ipHasher.hash(ip);
+        boolean requireTrustedIp = plugin.getConfig().getBoolean("security.change-pin.require-trusted-ip", true);
+        if (requireTrustedIp && !ipHasher.matches(ip, record.ipHmac())) {
+            audit("CHANGE_PIN_BLOCKED", player, shortFingerprint(currentIpHmac), "reason=untrustedIp");
+            player.sendMessage(plugin.prefix() + plugin.msg("messages.change-pin-untrusted-ip"));
+            return false;
+        }
+
+        long lockSeconds = remainingLockSeconds(player.getUniqueId(), currentIpHmac + PIN_CHANGE_SCOPE);
+        if (lockSeconds > 0) {
+            player.sendMessage(plugin.prefix() + plugin.msg(
+                    "messages.change-pin-locked",
+                    "%seconds%", Long.toString(lockSeconds)
+            ));
+            return false;
+        }
+
+        AuthSession session = new AuthSession(AuthStage.CHANGE_PIN_VERIFY);
+        sessions.put(player.getUniqueId(), session);
+        scheduleTimeout(player, session, shortFingerprint(currentIpHmac));
+        audit("CHANGE_PIN_START", player, shortFingerprint(currentIpHmac), "trustedIpRequired=" + requireTrustedIp);
+        player.sendMessage(plugin.prefix() + plugin.msg("messages.change-pin-start"));
+        return true;
+    }
+
     public boolean needsAuthentication(UUID uuid) {
         AuthSession session = sessions.get(uuid);
         return session == null || session.stage() != AuthStage.AUTHENTICATED;
@@ -379,7 +531,7 @@ public final class AuthManager {
             if (!player.isOnline() || active != session || active.stage() == AuthStage.AUTHENTICATED) {
                 return;
             }
-            audit("AUTH_TIMEOUT", player, ipFingerprint, "timeoutSeconds=" + timeoutSeconds);
+            audit("AUTH_TIMEOUT", player, ipFingerprint, "timeoutSeconds=" + timeoutSeconds + " stage=" + active.stage());
             sessions.remove(player.getUniqueId(), session);
             player.kick(plugin.component(plugin.msg(
                     "messages.authentication-timeout",
