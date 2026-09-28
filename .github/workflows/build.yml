@@ -26,5 +26,5 @@ jobs:
       - name: Upload plugin JAR
         uses: actions/upload-artifact@v4
         with:
-          name: CdrAuth-0.1.0
+          name: CdrAuth-build
           path: target/CdrAuth-*.jar
