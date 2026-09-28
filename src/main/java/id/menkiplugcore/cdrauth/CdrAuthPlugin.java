@@ -6,6 +6,7 @@ import id.menkiplugcore.cdrauth.command.CdrAuthCommand;
 import id.menkiplugcore.cdrauth.command.PinCommand;
 import id.menkiplugcore.cdrauth.listener.AuthListener;
 import id.menkiplugcore.cdrauth.storage.AccountStore;
+import id.menkiplugcore.cdrauth.ui.AdminGui;
 import id.menkiplugcore.cdrauth.ui.BedrockPinUi;
 import id.menkiplugcore.cdrauth.ui.JavaPinGui;
 import net.kyori.adventure.text.Component;
@@ -19,6 +20,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
     private AuthManager authManager;
     private JavaPinGui javaPinGui;
     private BedrockPinUi bedrockPinUi;
+    private AdminGui adminGui;
 
     @Override
     public void onEnable() {
@@ -35,11 +37,13 @@ public final class CdrAuthPlugin extends JavaPlugin {
 
         this.javaPinGui = new JavaPinGui(this, authManager);
         this.bedrockPinUi = new BedrockPinUi(this, authManager);
+        this.adminGui = new AdminGui(this, accountStore, authManager);
 
         getServer().getPluginManager().registerEvents(javaPinGui, this);
+        getServer().getPluginManager().registerEvents(adminGui, this);
         getServer().getPluginManager().registerEvents(new AuthListener(this, authManager), this);
 
-        CdrAuthCommand command = new CdrAuthCommand(this, accountStore, authManager);
+        CdrAuthCommand command = new CdrAuthCommand(this, accountStore, authManager, adminGui);
         if (getCommand("cdrauth") != null) {
             getCommand("cdrauth").setExecutor(command);
             getCommand("cdrauth").setTabCompleter(command);
@@ -123,5 +127,9 @@ public final class CdrAuthPlugin extends JavaPlugin {
 
     public AuthManager authManager() {
         return authManager;
+    }
+
+    public AdminGui adminGui() {
+        return adminGui;
     }
 }
