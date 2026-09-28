@@ -8,9 +8,15 @@ security:
   # PBKDF2-HMAC-SHA256 work factor for PIN hashing.
   pbkdf2-iterations: 210000
 
-  # When true, an account can only authenticate from the IP used during registration.
-  # To move an account to another IP, an admin must /cdrauth unreg <player> first.
-  strict-ip-binding: true
+  # Registered/trusted IP skips the PIN screen on future joins.
+  trusted-ip-auto-login: true
+
+  # One trusted IP can only belong to one registered account.
+  # If another account joins from the same trusted IP, CdrAuth blocks it and shows the bound account.
+  unique-ip-ownership: true
+
+  # A different IP may still log in after entering the correct PIN, but it is session-only.
+  # The trusted IP is never replaced automatically. Admin must /cdrauth unreg <player> first.
 
   # Delay before reopening the Java GUI if the player closes it before authenticating.
   reopen-delay-ticks: 8
@@ -19,14 +25,17 @@ messages:
   prefix: '&8[&bCdrAuth&8] &r'
   register-start: '&7Akun belum terdaftar. Buat PIN &b%length% digit&7.'
   login-start: '&7Masukkan PIN untuk melanjutkan.'
+  new-ip-login-start: '&eIP baru terdeteksi. &7Masukkan PIN untuk login pada sesi ini.'
+  auto-login: '&aTrusted IP dikenali. Login otomatis berhasil.'
   confirm-pin: '&7Masukkan ulang PIN untuk konfirmasi.'
-  registered: '&aRegistrasi berhasil. IP akun sudah dikunci.'
+  registered: '&aRegistrasi berhasil. IP ini sekarang menjadi trusted IP akun.'
   logged-in: '&aLogin berhasil. Selamat datang!'
+  logged-in-new-ip: '&aPIN benar. &eLogin sesi ini diizinkan, tetapi IP baru tidak disimpan sebagai trusted IP.'
   pin-invalid: '&cPIN harus terdiri dari tepat %length% angka.'
   pin-mismatch: '&cPIN konfirmasi tidak sama. Silakan buat PIN lagi.'
   wrong-pin: '&cPIN salah. Sisa percobaan: &f%remaining%'
   too-many-attempts: '&cTerlalu banyak percobaan PIN yang salah.'
-  ip-mismatch: '&cAkun ini terikat ke IP lain. Hubungi admin untuk unregister sebelum berpindah IP.'
+  account-collision: '&cIP ini sudah terikat ke akun &f%player%&c. Gunakan akun tersebut atau hubungi admin untuk unregister.'
   no-address: '&cAlamat IP koneksi tidak dapat dibaca. Login ditolak demi keamanan.'
   gui-login-title: '&0CdrAuth • Login'
   gui-register-title: '&0CdrAuth • Register'
@@ -39,4 +48,4 @@ messages:
   admin-usage: '&7Gunakan: &f/cdrauth <unreg|status> <player|uuid>'
   admin-not-found: '&cAkun tidak ditemukan.'
   admin-unregistered: '&aAkun &f%player% &aberhasil di-unregister. Player harus register ulang.'
-  admin-status: '&7Akun: &f%player% &8| &7UUID: &f%uuid% &8| &7IP bound: &aYES'
+  admin-status: '&7Akun: &f%player% &8| &7UUID: &f%uuid% &8| &7Trusted IP: &aBOUND'
