@@ -17,6 +17,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.view.AnvilView;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -49,8 +50,9 @@ public final class JavaPinGui implements Listener {
         ItemStack input = new ItemStack(Material.PAPER);
         ItemMeta meta = input.getItemMeta();
         meta.setDisplayName("");
-        meta.setLore(java.util.List.of(
-                plugin.msg("messages.gui-typed-pin-lore", "%length%", Integer.toString(authManager.pinLength()))
+        meta.setLore(List.of(
+                "§7Ketik PIN §f" + authManager.pinLength() + " digit §7di kolom nama di atas.",
+                "§8PIN tidak dikirim melalui chat."
         ));
         input.setItemMeta(meta);
         inventory.setItem(INPUT_SLOT, input);
@@ -79,7 +81,7 @@ public final class JavaPinGui implements Listener {
         ItemStack result = new ItemStack(Material.LIME_DYE);
         ItemMeta meta = result.getItemMeta();
         meta.setDisplayName(plugin.msg("messages.gui-submit"));
-        meta.setLore(java.util.List.of(plugin.msg("messages.gui-typed-pin-ready")));
+        meta.setLore(List.of("§7Klik untuk mengirim PIN dari GUI."));
         result.setItemMeta(meta);
         event.setResult(result);
         event.getView().setRepairCost(0);
