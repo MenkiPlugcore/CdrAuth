@@ -4,9 +4,47 @@ Crossplay PIN authentication plugin for Paper servers.
 
 CdrAuth provides a GUI-based register/login flow inspired by AuthMe. Java players use an inventory PIN keypad; Bedrock players use a native Floodgate form when Floodgate is available.
 
+## v0.6.0 Audit Log
+
+CdrAuth security history is now queryable from the Admin GUI while continuing to use the same human-readable `plugins/CdrAuth/security.log` file.
+
+Admin shortcuts:
+
+```text
+/cdrauth audit
+/cdrauth audit <player|uuid>
+```
+
+`/cdrauth audit` opens global security history. Supplying a player or UUID filters the viewer to that account.
+
+Audit viewer features:
+
+- Global security-event history from the Admin GUI account list.
+- Per-account security history from the account detail screen.
+- 45 events per page with previous/next navigation.
+- Event-type filter cycling (`ALL`, `WRONG_PIN`, `LOGIN_SUCCESS`, and other event types found in recent history).
+- Manual refresh directly from the viewer.
+- Timestamp, player, UUID, HMAC IP fingerprint, event name, and event detail.
+- No plaintext IP addresses are exposed in the log or GUI.
+- Existing v0.2.0 log lines remain readable by the v0.6.0 viewer.
+
+Log retention and viewer limits are configurable:
+
+```yaml
+security:
+  audit-log-enabled: true
+  audit:
+    max-file-size-kb: 1024
+    history-files: 3
+    viewer-max-entries: 500
+    viewer-scan-lines: 5000
+```
+
+When `security.log` reaches the configured size, CdrAuth rotates it to `security.log.1`, shifts older history files, and keeps the configured number of rotated logs. The viewer reads the active and rotated files from newest to oldest.
+
 ## v0.5.0 Admin GUI
 
-Admins can now manage registered CdrAuth accounts through an inventory GUI:
+Admins can manage registered CdrAuth accounts through an inventory GUI:
 
 ```text
 /cdrauth admin
@@ -29,8 +67,6 @@ Features:
 - Existing `/cdrauth status`, `resetip`, `resetpin`, and `unreg` commands remain available.
 
 Admin GUI actions intentionally dispatch the same administrative commands used by the command-line interface. This keeps the v0.3.0 safety rules in one code path: reset-IP is still blocked while reset-PIN is pending, reset-PIN still requires a bound trusted IP, and unregister still forces a fresh registration when the target is online.
-
-All Admin GUI titles, labels, lore, and confirmation text are configurable in `config.yml` under `messages.admin-gui-*`.
 
 Permission: `cdrauth.admin` (default: op)
 
@@ -82,42 +118,19 @@ Self-service PIN change is blocked while an admin reset-PIN or reset-IP recovery
 
 Permission: `cdrauth.admin`
 
-### resetip
+`resetip` clears only the trusted-IP binding while preserving the existing PIN. The next successful PIN login binds the current IP as the new trusted IP.
 
-`/cdrauth resetip <player|uuid>` clears only the trusted-IP binding. The existing PIN remains valid.
-
-On the next authentication, the player enters the old PIN and the current connection IP becomes the new trusted IP. If the player is online when the command is executed, CdrAuth immediately locks the session and opens the login GUI so the rebind can be completed without a relog.
-
-### resetpin
-
-`/cdrauth resetpin <player|uuid>` preserves the trusted IP and marks the account as requiring a new PIN.
-
-The new PIN is created through the normal Java/Bedrock PIN GUI. For security, PIN reset can only be completed from the account's existing trusted IP. Admins never see or set the player's PIN directly.
-
-CdrAuth prevents `resetip` while a PIN reset is pending because removing the trusted IP would make the PIN-reset verification path unavailable. Likewise, `resetpin` is rejected while the account has no trusted IP.
-
-### Detailed status
-
-`/cdrauth status <player|uuid>` reports:
-
-- username and UUID
-- online/offline state
-- trusted IP state (`BOUND` or `RESET_PENDING`)
-- PIN state (`ACTIVE` or `RESET_REQUIRED`)
-- current authentication session stage for online players
-- account creation timestamp
+`resetpin` preserves the trusted IP and requires the player to create a new PIN from that trusted IP. Admins never see or set the player's PIN directly.
 
 ## v0.2.0 Security Hardening
 
-- Trusted IP auto-login remains enabled: a registered account joining from its bound IP skips the PIN screen.
+- Trusted IP auto-login remains enabled.
 - New/untrusted IPs must enter the correct PIN and are authorized for that session only.
-- Authentication timeout kicks players who do not finish register/login/change-PIN within the configured time.
-- Wrong PIN attempts receive a progressive cooldown before another PIN can be submitted.
-- Per-session wrong-PIN limits still kick the player after too many failures.
+- Authentication timeout protects incomplete auth flows.
+- Wrong PIN attempts use progressive cooldown and per-session attempt limits.
 - A second brute-force layer tracks failures by account + HMAC IP fingerprint across reconnects in memory.
-- Reconnecting does not reset the brute-force window.
 - Reaching the rolling failure threshold temporarily locks that account + IP combination.
-- Security events are appended to `plugins/CdrAuth/security.log`.
+- Security events are written to `plugins/CdrAuth/security.log`.
 - Audit logs contain only short HMAC IP fingerprints, never plaintext IP addresses.
 
 ## Core account behavior
@@ -131,32 +144,14 @@ CdrAuth prevents `resetip` while a PIN reset is pending because removing the tru
 - Trusted IPs are stored as HMAC-SHA256 fingerprints using a locally generated secret rather than plaintext addresses.
 - Before authentication or while a sensitive PIN workflow is active, movement, chat, commands, inventory, interactions, item pickup/drop, and damage are blocked.
 
-## Default security values
-
-```yaml
-security:
-  max-attempts: 5
-  authentication-timeout-seconds: 60
-  audit-log-enabled: true
-  change-pin:
-    require-trusted-ip: true
-  cooldown:
-    base-seconds: 2
-    max-seconds: 15
-  bruteforce:
-    window-seconds: 600
-    max-failures: 10
-    lockout-seconds: 300
-```
-
-The brute-force state is memory-only in v0.5.0. A full server restart clears temporary failure windows and lockouts; persistent security history remains available in `security.log`.
+The brute-force state is memory-only in v0.6.0. A full server restart clears temporary failure windows and lockouts; persistent security history remains available in active and rotated `security.log` files.
 
 ## Crossplay UI
 
 - Java Edition: inventory-style numeric keypad.
 - Bedrock Edition with Floodgate: native Bedrock form keypad.
 - Register, login, reset-PIN, reset-IP rebind, and player change-PIN flows use the same crossplay keypad model.
-- Admin GUI uses the native Bukkit inventory interface and is intended for Java/Paper server administration.
+- Admin GUI and audit viewer use the native Bukkit inventory interface.
 - If Floodgate is unavailable, CdrAuth continues to work for Java players.
 
 ## Platform
