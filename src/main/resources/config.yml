@@ -1,0 +1,42 @@
+security:
+  # Numeric PIN length used by both Java and Bedrock UI.
+  pin-length: 6
+
+  # Kick after this many wrong login attempts.
+  max-attempts: 5
+
+  # PBKDF2-HMAC-SHA256 work factor for PIN hashing.
+  pbkdf2-iterations: 210000
+
+  # When true, an account can only authenticate from the IP used during registration.
+  # To move an account to another IP, an admin must /cdrauth unreg <player> first.
+  strict-ip-binding: true
+
+  # Delay before reopening the Java GUI if the player closes it before authenticating.
+  reopen-delay-ticks: 8
+
+messages:
+  prefix: '&8[&bCdrAuth&8] &r'
+  register-start: '&7Akun belum terdaftar. Buat PIN &b%length% digit&7.'
+  login-start: '&7Masukkan PIN untuk melanjutkan.'
+  confirm-pin: '&7Masukkan ulang PIN untuk konfirmasi.'
+  registered: '&aRegistrasi berhasil. IP akun sudah dikunci.'
+  logged-in: '&aLogin berhasil. Selamat datang!'
+  pin-invalid: '&cPIN harus terdiri dari tepat %length% angka.'
+  pin-mismatch: '&cPIN konfirmasi tidak sama. Silakan buat PIN lagi.'
+  wrong-pin: '&cPIN salah. Sisa percobaan: &f%remaining%'
+  too-many-attempts: '&cTerlalu banyak percobaan PIN yang salah.'
+  ip-mismatch: '&cAkun ini terikat ke IP lain. Hubungi admin untuk unregister sebelum berpindah IP.'
+  no-address: '&cAlamat IP koneksi tidak dapat dibaca. Login ditolak demi keamanan.'
+  gui-login-title: '&0CdrAuth • Login'
+  gui-register-title: '&0CdrAuth • Register'
+  gui-confirm-title: '&0CdrAuth • Confirm PIN'
+  gui-pin-display: '&bPIN: &f%pin%'
+  gui-backspace: '&e⌫ Hapus'
+  gui-submit: '&a✔ Konfirmasi'
+  gui-waiting: '&7Klik angka untuk memasukkan PIN.'
+  admin-no-permission: '&cKamu tidak memiliki izin.'
+  admin-usage: '&7Gunakan: &f/cdrauth <unreg|status> <player|uuid>'
+  admin-not-found: '&cAkun tidak ditemukan.'
+  admin-unregistered: '&aAkun &f%player% &aberhasil di-unregister. Player harus register ulang.'
+  admin-status: '&7Akun: &f%player% &8| &7UUID: &f%uuid% &8| &7IP bound: &aYES'

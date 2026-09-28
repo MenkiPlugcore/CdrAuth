@@ -1,0 +1,17 @@
+name: CdrAuth
+version: '${project.version}'
+main: id.menkiplugcore.cdrauth.CdrAuthPlugin
+api-version: '1.21.11'
+author: CADERA
+website: https://github.com/MenkiPlugcore/CdrAuth
+description: Crossplay GUI PIN authentication with strict per-account IP binding.
+softdepend: [floodgate]
+commands:
+  cdrauth:
+    description: CdrAuth administrative command.
+    usage: /cdrauth <unreg|status> <player|uuid>
+    permission: cdrauth.admin
+permissions:
+  cdrauth.admin:
+    description: Allows CdrAuth administration.
+    default: op
