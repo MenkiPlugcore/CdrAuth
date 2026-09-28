@@ -34,12 +34,24 @@ final class FloodgateBridge {
                     .content("PIN: " + masked + "\n\nPilih angka di bawah.");
 
             for (int number = 1; number <= 9; number++) {
-                String digit = Integer.toString(number);
-                form.button(digit, response -> owner.digit(player, digit));
+                form.button(Integer.toString(number));
             }
-            form.button("⌫ Hapus", response -> owner.backspace(player));
-            form.button("0", response -> owner.digit(player, "0"));
-            form.button("✔ Konfirmasi", response -> owner.submit(player));
+            form.button("⌫ Hapus");
+            form.button("0");
+            form.button("✔ Konfirmasi");
+
+            form.validResultHandler(response -> {
+                int button = response.clickedButtonId();
+                if (button >= 0 && button <= 8) {
+                    owner.digit(player, Integer.toString(button + 1));
+                } else if (button == 9) {
+                    owner.backspace(player);
+                } else if (button == 10) {
+                    owner.digit(player, "0");
+                } else if (button == 11) {
+                    owner.submit(player);
+                }
+            });
             form.closedOrInvalidResultHandler(() -> owner.closed(player));
             return api.sendForm(player.getUniqueId(), form);
         } catch (Throwable throwable) {

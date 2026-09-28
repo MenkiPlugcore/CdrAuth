@@ -2,7 +2,6 @@ package id.menkiplugcore.cdrauth.ui;
 
 import id.menkiplugcore.cdrauth.CdrAuthPlugin;
 import id.menkiplugcore.cdrauth.auth.AuthManager;
-import id.menkiplugcore.cdrauth.auth.AuthStage;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -23,10 +22,12 @@ import java.util.UUID;
 public final class JavaPinGui implements Listener {
     private static final Map<Integer, String> DIGIT_SLOTS = Map.of(
             10, "1", 11, "2", 12, "3",
-            13, "4", 14, "5", 15, "6",
-            16, "7", 17, "8", 18, "9",
-            22, "0"
+            19, "4", 20, "5", 21, "6",
+            28, "7", 29, "8", 30, "9",
+            32, "0"
     );
+    private static final int BACKSPACE_SLOT = 31;
+    private static final int SUBMIT_SLOT = 33;
 
     private final CdrAuthPlugin plugin;
     private final AuthManager authManager;
@@ -49,7 +50,7 @@ public final class JavaPinGui implements Listener {
 
         input.put(player.getUniqueId(), new StringBuilder());
         PinGuiHolder holder = new PinGuiHolder(player.getUniqueId());
-        Inventory inventory = Bukkit.createInventory(holder, 27, titleFor(player));
+        Inventory inventory = Bukkit.createInventory(holder, 36, titleFor(player));
         holder.inventory(inventory);
 
         ItemStack filler = item(Material.GRAY_STAINED_GLASS_PANE, " ");
@@ -60,8 +61,8 @@ public final class JavaPinGui implements Listener {
         for (Map.Entry<Integer, String> entry : DIGIT_SLOTS.entrySet()) {
             inventory.setItem(entry.getKey(), item(Material.LIGHT_BLUE_STAINED_GLASS_PANE, "§b§l" + entry.getValue()));
         }
-        inventory.setItem(21, item(Material.YELLOW_STAINED_GLASS_PANE, plugin.msg("messages.gui-backspace")));
-        inventory.setItem(23, item(Material.LIME_STAINED_GLASS_PANE, plugin.msg("messages.gui-submit")));
+        inventory.setItem(BACKSPACE_SLOT, item(Material.YELLOW_STAINED_GLASS_PANE, plugin.msg("messages.gui-backspace")));
+        inventory.setItem(SUBMIT_SLOT, item(Material.LIME_STAINED_GLASS_PANE, plugin.msg("messages.gui-submit")));
         renderDisplay(inventory, player.getUniqueId());
         player.openInventory(inventory);
     }
@@ -94,7 +95,7 @@ public final class JavaPinGui implements Listener {
             return;
         }
 
-        if (event.getRawSlot() == 21) {
+        if (event.getRawSlot() == BACKSPACE_SLOT) {
             if (!builder.isEmpty()) {
                 builder.deleteCharAt(builder.length() - 1);
                 renderDisplay(event.getView().getTopInventory(), player.getUniqueId());
@@ -102,7 +103,7 @@ public final class JavaPinGui implements Listener {
             return;
         }
 
-        if (event.getRawSlot() == 23) {
+        if (event.getRawSlot() == SUBMIT_SLOT) {
             plugin.handleAuthResult(player, authManager.submitPin(player, builder.toString()));
         }
     }
