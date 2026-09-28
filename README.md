@@ -2,20 +2,27 @@
 
 Crossplay PIN authentication plugin for Paper servers.
 
-CdrAuth provides a GUI-based register/login flow inspired by AuthMe, with strict one-IP-per-account binding. Java players use an inventory PIN keypad; Bedrock players can use a native Floodgate form when Floodgate is available.
+CdrAuth provides a GUI-based register/login flow inspired by AuthMe. Java players use an inventory PIN keypad; Bedrock players use a native Floodgate form when Floodgate is available.
 
-## Planned v0.1.0 core
+## v0.1.1 behavior
 
-- Register PIN through GUI (no PIN typed in chat)
-- Login PIN through GUI
-- Java inventory keypad
-- Bedrock native Floodgate form with automatic Java-GUI fallback
-- One registered IP per account
-- Admin-only unregister before an account can bind to another IP
-- PBKDF2-HMAC-SHA256 PIN hashing with per-account salt
-- HMAC-SHA256 IP fingerprinting with a locally generated secret
-- Movement, interaction, command, chat, damage, pickup, and inventory protection before authentication
-- Configurable PIN length and failed-attempt limit
+- First join: register a numeric PIN through GUI and confirm it.
+- The registration IP becomes the account's permanent **trusted IP**.
+- Future joins from the same trusted IP are logged in automatically without asking for the PIN again.
+- A join from a different IP must enter the correct PIN.
+- A different IP is authorized for that session only and does not replace the trusted IP.
+- Moving the permanent trusted IP requires an admin to `/cdrauth unreg <player|uuid>` first, followed by registration again from the new IP.
+- Optional strict IP ownership prevents one trusted IP from being registered to multiple accounts and shows an account-collision notice when a conflict is detected.
+- PINs are never stored in plaintext: PBKDF2-HMAC-SHA256 with per-account salt is used.
+- Trusted IPs are stored as HMAC-SHA256 fingerprints using a locally generated secret rather than plaintext addresses.
+- Before authentication, movement, chat, commands, inventory, interactions, item pickup/drop, and damage are blocked.
+- PIN length and failed-attempt limits are configurable.
+
+## Crossplay UI
+
+- Java Edition: inventory-style numeric keypad.
+- Bedrock Edition with Floodgate: native Bedrock form keypad.
+- If Floodgate is unavailable, CdrAuth continues to work for Java players.
 
 ## Platform
 
@@ -25,11 +32,11 @@ CdrAuth provides a GUI-based register/login flow inspired by AuthMe, with strict
 
 ## Important IP note
 
-If the server is behind Velocity, BungeeCord, a TCP proxy, or another reverse proxy, configure proper player IP forwarding first. Otherwise CdrAuth can see the proxy address instead of the player's real address, which defeats strict per-account IP binding.
+If the server is behind Velocity, BungeeCord, a TCP proxy, or another reverse proxy, configure proper player IP forwarding first. Otherwise CdrAuth may see the proxy address rather than the player's actual address, which makes trusted-IP logic unreliable.
 
-Strict IP binding can also require admin intervention when a legitimate player's ISP/mobile network changes their public IP. This is intentional for the requested security model: the account must be unregistered by an admin before it can bind to a new IP.
+With `security.unique-ip-ownership: true`, players sharing one public IP (for example the same home Wi-Fi or CGNAT exit) cannot each register separate trusted accounts on that IP. Disable that option if shared public IPs need to be supported.
 
-## Admin command
+## Admin commands
 
 ```text
 /cdrauth unreg <player|uuid>
