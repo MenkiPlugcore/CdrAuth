@@ -37,7 +37,7 @@ security:
     lockout-seconds: 300
 
   # A different IP may still log in after entering the correct PIN, but it is session-only.
-  # The trusted IP is never replaced automatically. Admin must /cdrauth unreg <player> first.
+  # The trusted IP is never replaced automatically unless an admin runs /cdrauth resetip.
 
   # Delay before reopening the Java GUI if the player closes it before authenticating.
   reopen-delay-ticks: 8
@@ -52,6 +52,16 @@ messages:
   registered: '&aRegistrasi berhasil. IP ini sekarang menjadi trusted IP akun.'
   logged-in: '&aLogin berhasil. Selamat datang!'
   logged-in-new-ip: '&aPIN benar. &eLogin sesi ini diizinkan, tetapi IP baru tidak disimpan sebagai trusted IP.'
+
+  # Account management flows.
+  ip-rebind-login-start: '&eTrusted IP akun telah di-reset. &7Masukkan PIN lama untuk mengikat IP koneksi ini sebagai trusted IP baru.'
+  ip-rebind-success: '&aPIN benar. IP koneksi ini sekarang menjadi trusted IP baru akun.'
+  pin-reset-start: '&eReset PIN diminta admin. &7Buat PIN baru sebanyak &b%length% digit&7.'
+  confirm-new-pin: '&7Masukkan ulang PIN baru untuk konfirmasi.'
+  pin-reset-success: '&aPIN akun berhasil diganti.'
+  pin-reset-untrusted-ip: '&cReset PIN hanya dapat diselesaikan dari trusted IP akun. Hubungi admin jika trusted IP juga perlu di-reset.'
+  pin-reset-no-trusted-ip: '&cReset PIN tidak dapat dilanjutkan karena akun sedang tidak memiliki trusted IP. Selesaikan reset IP terlebih dahulu.'
+
   pin-invalid: '&cPIN harus terdiri dari tepat %length% angka.'
   pin-mismatch: '&cPIN konfirmasi tidak sama. Tunggu sebentar lalu buat PIN lagi.'
   wrong-pin: '&cPIN salah. Sisa percobaan: &f%remaining%'
@@ -60,17 +70,31 @@ messages:
   too-many-attempts: '&cTerlalu banyak percobaan PIN yang salah pada sesi ini. Silakan masuk kembali.'
   bruteforce-locked: '&cLogin dikunci sementara karena terlalu banyak PIN salah. Coba lagi dalam %seconds% detik.'
   authentication-timeout: '&cWaktu autentikasi habis (%seconds% detik). Silakan masuk kembali.'
-  account-collision: '&cIP ini sudah terikat ke akun &f%player%&c. Gunakan akun tersebut atau hubungi admin untuk unregister.'
+  account-collision: '&cIP ini sudah terikat ke akun &f%player%&c. Gunakan akun tersebut atau hubungi admin untuk unregister/reset IP.'
   no-address: '&cAlamat IP koneksi tidak dapat dibaca. Login ditolak demi keamanan.'
+
   gui-login-title: '&0CdrAuth • Login'
   gui-register-title: '&0CdrAuth • Register'
   gui-confirm-title: '&0CdrAuth • Confirm PIN'
+  gui-reset-pin-title: '&0CdrAuth • Reset PIN'
+  gui-confirm-reset-pin-title: '&0CdrAuth • Confirm New PIN'
   gui-pin-display: '&bPIN: &f%pin%'
   gui-backspace: '&e⌫ Hapus'
   gui-submit: '&a✔ Konfirmasi'
   gui-waiting: '&7Klik angka untuk memasukkan PIN.'
+
   admin-no-permission: '&cKamu tidak memiliki izin.'
-  admin-usage: '&7Gunakan: &f/cdrauth <unreg|status> <player|uuid>'
+  admin-usage: '&7Gunakan: &f/cdrauth <status|resetip|resetpin|unreg> <player|uuid>'
   admin-not-found: '&cAkun tidak ditemukan.'
   admin-unregistered: '&aAkun &f%player% &aberhasil di-unregister. Player harus register ulang.'
-  admin-status: '&7Akun: &f%player% &8| &7UUID: &f%uuid% &8| &7Trusted IP: &aBOUND'
+  admin-ip-reset: '&aTrusted IP akun &f%player% &aberhasil di-reset. PIN lama tetap berlaku dan akan dipakai untuk bind IP baru.'
+  admin-pin-reset: '&aReset PIN untuk akun &f%player% &atelah dijadwalkan. Player harus membuat PIN baru dari trusted IP.'
+  admin-resetip-blocked-pinreset: '&cTidak dapat reset IP &f%player%&c karena akun sedang menunggu reset PIN. Selesaikan reset PIN atau unregister akun.'
+  admin-resetpin-no-ip: '&cTidak dapat reset PIN &f%player%&c karena trusted IP sedang kosong. Selesaikan reset IP terlebih dahulu.'
+  admin-status-header: '&b&lCdrAuth Account &8• &f%player%'
+  admin-status-uuid: '&7UUID: &f%uuid%'
+  admin-status-online: '&7Player: &f%online%'
+  admin-status-ip: '&7Trusted IP: &f%ipstate%'
+  admin-status-pin: '&7PIN: &f%pinstate%'
+  admin-status-session: '&7Session: &f%session%'
+  admin-status-created: '&7Created: &f%created%'
