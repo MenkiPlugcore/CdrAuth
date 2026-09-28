@@ -15,11 +15,11 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-final class SecurityAuditLogger {
+public final class SecurityAuditLogger {
     private final CdrAuthPlugin plugin;
     private final Path file;
 
-    SecurityAuditLogger(CdrAuthPlugin plugin) throws IOException {
+    public SecurityAuditLogger(CdrAuthPlugin plugin) throws IOException {
         this.plugin = plugin;
         if (!Files.exists(plugin.getDataFolder().toPath())) {
             Files.createDirectories(plugin.getDataFolder().toPath());
@@ -30,7 +30,7 @@ final class SecurityAuditLogger {
         }
     }
 
-    synchronized void log(String event, String playerName, String uuid, String ipFingerprint, String detail) {
+    public synchronized void log(String event, String playerName, String uuid, String ipFingerprint, String detail) {
         if (!plugin.getConfig().getBoolean("security.audit-log-enabled", true)) {
             return;
         }
@@ -53,7 +53,7 @@ final class SecurityAuditLogger {
         }
     }
 
-    synchronized List<AuditEntry> recent(UUID playerFilter, String eventFilter, int requestedLimit) {
+    public synchronized List<AuditEntry> recent(UUID playerFilter, String eventFilter, int requestedLimit) {
         int limit = Math.max(1, Math.min(requestedLimit, 500));
         int scanLimit = Math.max(limit, plugin.getConfig().getInt("security.audit.viewer-scan-lines", 5000));
         List<AuditEntry> result = new ArrayList<>();
@@ -89,7 +89,7 @@ final class SecurityAuditLogger {
         return result;
     }
 
-    synchronized List<String> recentEventTypes(UUID playerFilter, int requestedLimit) {
+    public synchronized List<String> recentEventTypes(UUID playerFilter, int requestedLimit) {
         int maxTypes = Math.max(1, Math.min(requestedLimit, 100));
         Set<String> types = new LinkedHashSet<>();
         for (AuditEntry entry : recent(playerFilter, "ALL", Math.max(250, maxTypes * 20))) {
