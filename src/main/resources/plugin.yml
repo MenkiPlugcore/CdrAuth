@@ -4,14 +4,22 @@ main: id.menkiplugcore.cdrauth.CdrAuthPlugin
 api-version: '1.21.11'
 author: CADERA
 website: https://github.com/MenkiPlugcore/CdrAuth
-description: Crossplay GUI PIN authentication with trusted-IP security and account management.
+description: Crossplay GUI PIN authentication with trusted-IP security, account management, and player PIN changes.
 softdepend: [floodgate]
 commands:
   cdrauth:
     description: CdrAuth administrative command.
     usage: /cdrauth <status|resetip|resetpin|unreg> <player|uuid>
     permission: cdrauth.admin
+  pin:
+    description: Change your CdrAuth PIN through the secure GUI.
+    usage: /pin
+    aliases: [changepin]
+    permission: cdrauth.changepin
 permissions:
   cdrauth.admin:
     description: Allows CdrAuth administration.
     default: op
+  cdrauth.changepin:
+    description: Allows a player to change their own CdrAuth PIN.
+    default: true
