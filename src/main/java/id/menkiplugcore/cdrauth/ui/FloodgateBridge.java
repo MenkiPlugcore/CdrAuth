@@ -65,6 +65,8 @@ final class FloodgateBridge {
         return switch (stage) {
             case REGISTER -> "CdrAuth • Register";
             case CONFIRM_REGISTER -> "CdrAuth • Confirm PIN";
+            case RESET_PIN -> "CdrAuth • Reset PIN";
+            case CONFIRM_RESET_PIN -> "CdrAuth • Confirm New PIN";
             case LOGIN, AUTHENTICATED -> "CdrAuth • Login";
         };
     }
