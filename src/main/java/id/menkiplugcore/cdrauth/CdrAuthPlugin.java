@@ -3,6 +3,7 @@ package id.menkiplugcore.cdrauth;
 import id.menkiplugcore.cdrauth.auth.AuthManager;
 import id.menkiplugcore.cdrauth.auth.AuthResult;
 import id.menkiplugcore.cdrauth.command.CdrAuthCommand;
+import id.menkiplugcore.cdrauth.command.PinCommand;
 import id.menkiplugcore.cdrauth.listener.AuthListener;
 import id.menkiplugcore.cdrauth.storage.AccountStore;
 import id.menkiplugcore.cdrauth.ui.BedrockPinUi;
@@ -44,11 +45,18 @@ public final class CdrAuthPlugin extends JavaPlugin {
             getCommand("cdrauth").setTabCompleter(command);
         }
 
+        PinCommand pinCommand = new PinCommand(this, authManager);
+        if (getCommand("pin") != null) {
+            getCommand("pin").setExecutor(pinCommand);
+        }
+
         getLogger().info("CdrAuth v" + getDescription().getVersion() + " enabled.");
         getLogger().info("PIN hashing: PBKDF2-HMAC-SHA256 | trusted IP auto-login: "
                 + getConfig().getBoolean("security.trusted-ip-auto-login", true)
                 + " | unique IP ownership: "
-                + getConfig().getBoolean("security.unique-ip-ownership", true));
+                + getConfig().getBoolean("security.unique-ip-ownership", true)
+                + " | change PIN requires trusted IP: "
+                + getConfig().getBoolean("security.change-pin.require-trusted-ip", true));
         getLogger().info("Floodgate native UI: " + (bedrockPinUi.isAvailable() ? "available" : "not detected (Java GUI fallback)"));
     }
 
