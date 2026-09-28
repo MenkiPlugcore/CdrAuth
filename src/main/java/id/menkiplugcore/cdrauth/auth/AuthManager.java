@@ -45,22 +45,40 @@ public final class AuthManager {
 
         String currentIpHmac = ipHasher.hash(ip);
         String ipFingerprint = shortFingerprint(currentIpHmac);
-        boolean uniqueIpOwnership = plugin.getConfig().getBoolean("security.unique-ip-ownership", true);
-        if (uniqueIpOwnership) {
-            Optional<AccountRecord> ipOwner = store.findByIpHmac(currentIpHmac);
-            if (ipOwner.isPresent() && !ipOwner.get().uuid().equals(player.getUniqueId())) {
-                audit("ACCOUNT_COLLISION", player, ipFingerprint, "boundTo=" + ipOwner.get().username());
-                player.kick(plugin.component(plugin.msg(
-                        "messages.account-collision",
-                        "%player%", ipOwner.get().username()
-                )));
-                return false;
-            }
+        if (hasIpCollision(player.getUniqueId(), currentIpHmac)) {
+            AccountRecord owner = store.findByIpHmac(currentIpHmac).orElseThrow();
+            audit("ACCOUNT_COLLISION", player, ipFingerprint, "boundTo=" + owner.username());
+            player.kick(plugin.component(plugin.msg(
+                    "messages.account-collision",
+                    "%player%", owner.username()
+            )));
+            return false;
         }
 
         if (account.isPresent()) {
             AccountRecord record = account.get();
-            boolean trustedIp = ipHasher.matches(ip, record.ipHmac());
+
+            if (record.pinResetRequired()) {
+                if (!record.hasTrustedIp()) {
+                    audit("PIN_RESET_BLOCKED", player, ipFingerprint, "reason=noTrustedIp");
+                    player.kick(plugin.component(plugin.msg("messages.pin-reset-no-trusted-ip")));
+                    return false;
+                }
+                if (!ipHasher.matches(ip, record.ipHmac())) {
+                    audit("PIN_RESET_BLOCKED", player, ipFingerprint, "reason=untrustedIp");
+                    player.kick(plugin.component(plugin.msg("messages.pin-reset-untrusted-ip")));
+                    return false;
+                }
+
+                AuthSession session = new AuthSession(AuthStage.RESET_PIN);
+                sessions.put(player.getUniqueId(), session);
+                scheduleTimeout(player, session, ipFingerprint);
+                audit("PIN_RESET_CHALLENGE", player, ipFingerprint, "trustedIp=true");
+                player.sendMessage(plugin.prefix() + plugin.msg("messages.pin-reset-start", "%length%", Integer.toString(pinLength())));
+                return true;
+            }
+
+            boolean trustedIp = record.hasTrustedIp() && ipHasher.matches(ip, record.ipHmac());
             boolean trustedIpAutoLogin = plugin.getConfig().getBoolean("security.trusted-ip-auto-login", true);
 
             if (trustedIp && trustedIpAutoLogin) {
@@ -85,7 +103,10 @@ public final class AuthManager {
             AuthSession session = new AuthSession(AuthStage.LOGIN);
             sessions.put(player.getUniqueId(), session);
             scheduleTimeout(player, session, ipFingerprint);
-            if (trustedIp) {
+            if (!record.hasTrustedIp()) {
+                audit("IP_REBIND_CHALLENGE", player, ipFingerprint, "trustedIpPending=true");
+                player.sendMessage(plugin.prefix() + plugin.msg("messages.ip-rebind-login-start"));
+            } else if (trustedIp) {
                 audit("LOGIN_CHALLENGE", player, ipFingerprint, "trustedIp=true autoLogin=false");
                 player.sendMessage(plugin.prefix() + plugin.msg("messages.login-start"));
             } else {
@@ -129,6 +150,12 @@ public final class AuthManager {
             }
             case CONFIRM_REGISTER -> finishRegistration(player, session, pin);
             case LOGIN -> finishLogin(player, session, pin);
+            case RESET_PIN -> {
+                session.firstPin(pin);
+                session.stage(AuthStage.CONFIRM_RESET_PIN);
+                yield AuthResult.next(plugin.msg("messages.confirm-new-pin"));
+            }
+            case CONFIRM_RESET_PIN -> finishPinReset(player, session, pin);
             case AUTHENTICATED -> AuthResult.success("");
         };
     }
@@ -151,15 +178,13 @@ public final class AuthManager {
 
         String currentIpHmac = ipHasher.hash(ip);
         String ipFingerprint = shortFingerprint(currentIpHmac);
-        if (plugin.getConfig().getBoolean("security.unique-ip-ownership", true)) {
-            Optional<AccountRecord> ipOwner = store.findByIpHmac(currentIpHmac);
-            if (ipOwner.isPresent() && !ipOwner.get().uuid().equals(player.getUniqueId())) {
-                audit("ACCOUNT_COLLISION", player, ipFingerprint, "boundTo=" + ipOwner.get().username());
-                return AuthResult.kick(plugin.msg(
-                        "messages.account-collision",
-                        "%player%", ipOwner.get().username()
-                ));
-            }
+        if (hasIpCollision(player.getUniqueId(), currentIpHmac)) {
+            AccountRecord owner = store.findByIpHmac(currentIpHmac).orElseThrow();
+            audit("ACCOUNT_COLLISION", player, ipFingerprint, "boundTo=" + owner.username());
+            return AuthResult.kick(plugin.msg(
+                    "messages.account-collision",
+                    "%player%", owner.username()
+            ));
         }
 
         PinHasher.Hash hashed = pinHasher.hash(pin);
@@ -169,7 +194,8 @@ public final class AuthManager {
                 hashed.salt(),
                 hashed.hash(),
                 currentIpHmac,
-                System.currentTimeMillis()
+                System.currentTimeMillis(),
+                false
         );
         store.register(record);
         clearFailureState(player.getUniqueId(), currentIpHmac);
@@ -204,6 +230,23 @@ public final class AuthManager {
 
         AccountRecord record = account.get();
         if (pinHasher.verify(pin, record.pinSalt(), record.pinHash())) {
+            if (!record.hasTrustedIp()) {
+                if (hasIpCollision(player.getUniqueId(), currentIpHmac)) {
+                    AccountRecord owner = store.findByIpHmac(currentIpHmac).orElseThrow();
+                    audit("ACCOUNT_COLLISION", player, ipFingerprint, "boundTo=" + owner.username());
+                    return AuthResult.kick(plugin.msg(
+                            "messages.account-collision",
+                            "%player%", owner.username()
+                    ));
+                }
+                store.updateTrustedIp(player.getUniqueId(), currentIpHmac);
+                session.stage(AuthStage.AUTHENTICATED);
+                store.updateUsername(player.getUniqueId(), player.getName());
+                clearFailureState(player.getUniqueId(), currentIpHmac);
+                audit("IP_REBIND_SUCCESS", player, ipFingerprint, "trustedIpBound=true");
+                return AuthResult.success(plugin.msg("messages.ip-rebind-success"));
+            }
+
             session.stage(AuthStage.AUTHENTICATED);
             store.updateUsername(player.getUniqueId(), player.getName());
             clearFailureState(player.getUniqueId(), currentIpHmac);
@@ -245,10 +288,65 @@ public final class AuthManager {
         ));
     }
 
+    private AuthResult finishPinReset(Player player, AuthSession session, String pin) {
+        byte[] first = session.firstPin() == null ? new byte[0] : session.firstPin().getBytes(StandardCharsets.UTF_8);
+        byte[] second = pin.getBytes(StandardCharsets.UTF_8);
+        if (!MessageDigest.isEqual(first, second)) {
+            session.firstPin(null);
+            session.stage(AuthStage.RESET_PIN);
+            session.applyCooldown(progressiveCooldownMillis(1));
+            audit("PIN_RESET_MISMATCH", player, fingerprint(player), "confirmationMismatch=true");
+            return AuthResult.retry(plugin.msg("messages.pin-mismatch"));
+        }
+
+        PinHasher.Hash hashed = pinHasher.hash(pin);
+        store.updatePin(player.getUniqueId(), hashed.salt(), hashed.hash());
+        session.firstPin(null);
+        session.stage(AuthStage.AUTHENTICATED);
+        audit("PIN_RESET_SUCCESS", player, fingerprint(player), "pinReplaced=true");
+        return AuthResult.success(plugin.msg("messages.pin-reset-success"));
+    }
+
     public void prepareRegistration(Player player) {
         AuthSession session = new AuthSession(AuthStage.REGISTER);
         sessions.put(player.getUniqueId(), session);
         scheduleTimeout(player, session, fingerprint(player));
+    }
+
+    public boolean prepareIpRebind(Player player) {
+        if (currentIp(player) == null) {
+            player.kick(plugin.component(plugin.msg("messages.no-address")));
+            return false;
+        }
+        AuthSession session = new AuthSession(AuthStage.LOGIN);
+        sessions.put(player.getUniqueId(), session);
+        scheduleTimeout(player, session, fingerprint(player));
+        player.sendMessage(plugin.prefix() + plugin.msg("messages.ip-rebind-login-start"));
+        return true;
+    }
+
+    public boolean preparePinReset(Player player) {
+        Optional<AccountRecord> account = store.find(player.getUniqueId());
+        String ip = currentIp(player);
+        if (account.isEmpty() || ip == null) {
+            return false;
+        }
+
+        AccountRecord record = account.get();
+        if (!record.hasTrustedIp()) {
+            player.kick(plugin.component(plugin.msg("messages.pin-reset-no-trusted-ip")));
+            return false;
+        }
+        if (!ipHasher.matches(ip, record.ipHmac())) {
+            player.kick(plugin.component(plugin.msg("messages.pin-reset-untrusted-ip")));
+            return false;
+        }
+
+        AuthSession session = new AuthSession(AuthStage.RESET_PIN);
+        sessions.put(player.getUniqueId(), session);
+        scheduleTimeout(player, session, fingerprint(player));
+        player.sendMessage(plugin.prefix() + plugin.msg("messages.pin-reset-start", "%length%", Integer.toString(pinLength())));
+        return true;
     }
 
     public boolean needsAuthentication(UUID uuid) {
@@ -288,6 +386,14 @@ public final class AuthManager {
                     "%seconds%", Integer.toString(timeoutSeconds)
             )));
         }, timeoutSeconds * 20L);
+    }
+
+    private boolean hasIpCollision(UUID uuid, String ipHmac) {
+        if (!plugin.getConfig().getBoolean("security.unique-ip-ownership", true)) {
+            return false;
+        }
+        Optional<AccountRecord> owner = store.findByIpHmac(ipHmac);
+        return owner.isPresent() && !owner.get().uuid().equals(uuid);
     }
 
     private long progressiveCooldownMillis(int attempt) {
