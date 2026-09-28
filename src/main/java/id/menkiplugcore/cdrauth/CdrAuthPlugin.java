@@ -8,19 +8,22 @@ import id.menkiplugcore.cdrauth.listener.AuthListener;
 import id.menkiplugcore.cdrauth.storage.AccountStore;
 import id.menkiplugcore.cdrauth.ui.AdminGui;
 import id.menkiplugcore.cdrauth.ui.BedrockPinUi;
-import id.menkiplugcore.cdrauth.ui.JavaPinGui;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 public final class CdrAuthPlugin extends JavaPlugin {
     private AccountStore accountStore;
     private AuthManager authManager;
-    private JavaPinGui javaPinGui;
     private BedrockPinUi bedrockPinUi;
     private AdminGui adminGui;
+    private final Set<UUID> chatFallback = ConcurrentHashMap.newKeySet();
 
     @Override
     public void onEnable() {
@@ -35,11 +38,9 @@ public final class CdrAuthPlugin extends JavaPlugin {
             return;
         }
 
-        this.javaPinGui = new JavaPinGui(this, authManager);
         this.bedrockPinUi = new BedrockPinUi(this, authManager);
         this.adminGui = new AdminGui(this, accountStore, authManager);
 
-        getServer().getPluginManager().registerEvents(javaPinGui, this);
         getServer().getPluginManager().registerEvents(adminGui, this);
         getServer().getPluginManager().registerEvents(new AuthListener(this, authManager), this);
 
@@ -61,7 +62,8 @@ public final class CdrAuthPlugin extends JavaPlugin {
                 + getConfig().getBoolean("security.unique-ip-ownership", true)
                 + " | change PIN requires trusted IP: "
                 + getConfig().getBoolean("security.change-pin.require-trusted-ip", true));
-        getLogger().info("Floodgate native UI: " + (bedrockPinUi.isAvailable() ? "available" : "not detected (Java GUI fallback)"));
+        getLogger().info("Java PIN input: private cancelled chat | Floodgate native UI: "
+                + (bedrockPinUi.isAvailable() ? "available" : "not detected"));
     }
 
     @Override
@@ -69,6 +71,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
         if (authManager != null) {
             authManager.clearSessions();
         }
+        chatFallback.clear();
     }
 
     public void showAuth(Player player) {
@@ -76,25 +79,33 @@ public final class CdrAuthPlugin extends JavaPlugin {
             return;
         }
 
-        if (bedrockPinUi.isBedrock(player)) {
+        if (bedrockPinUi.isBedrock(player) && !chatFallback.contains(player.getUniqueId())) {
             bedrockPinUi.open(player);
-        } else {
-            javaPinGui.open(player);
+            return;
         }
+
+        showChatPrompt(player);
     }
 
     public void showJavaFallback(Player player) {
         if (player.isOnline() && authManager.needsAuthentication(player.getUniqueId())) {
-            javaPinGui.open(player);
+            chatFallback.add(player.getUniqueId());
+            showChatPrompt(player);
         }
+    }
+
+    public boolean acceptsChatPin(Player player) {
+        return !bedrockPinUi.isBedrock(player) || chatFallback.contains(player.getUniqueId());
     }
 
     public void handleAuthResult(Player player, AuthResult result) {
         switch (result.type()) {
             case SUCCESS -> {
-                javaPinGui.closeSilently(player);
                 bedrockPinUi.clear(player.getUniqueId());
-                player.sendMessage(prefix() + result.message());
+                chatFallback.remove(player.getUniqueId());
+                if (!result.message().isBlank()) {
+                    player.sendMessage(prefix() + result.message());
+                }
             }
             case NEXT, RETRY -> {
                 player.sendMessage(prefix() + result.message());
@@ -105,8 +116,15 @@ public final class CdrAuthPlugin extends JavaPlugin {
     }
 
     public void cleanupUi(Player player) {
-        javaPinGui.cleanup(player.getUniqueId());
         bedrockPinUi.clear(player.getUniqueId());
+        chatFallback.remove(player.getUniqueId());
+    }
+
+    private void showChatPrompt(Player player) {
+        player.sendMessage(prefix() + msg(
+                "messages.java-chat-pin-prompt",
+                "%length%", Integer.toString(authManager.pinLength())
+        ));
     }
 
     public String msg(String path, String... replacements) {
