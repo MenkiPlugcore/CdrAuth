@@ -2,8 +2,8 @@ package id.menkiplugcore.cdrauth.listener;
 
 import id.menkiplugcore.cdrauth.CdrAuthPlugin;
 import id.menkiplugcore.cdrauth.auth.AuthManager;
-import id.menkiplugcore.cdrauth.ui.PinGuiHolder;
 import io.papermc.paper.event.player.AsyncChatEvent;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -70,9 +70,27 @@ public final class AuthListener implements Listener {
 
     @EventHandler
     public void onChat(AsyncChatEvent event) {
-        if (locked(event.getPlayer())) {
-            event.setCancelled(true);
+        Player player = event.getPlayer();
+        if (!locked(player)) {
+            return;
         }
+
+        // Authentication chat is always private: cancel before any viewers receive it.
+        event.setCancelled(true);
+
+        // Bedrock normally uses its native form. Chat is accepted only for Java or if
+        // Floodgate form delivery failed and CdrAuth explicitly enabled chat fallback.
+        if (!plugin.acceptsChatPin(player)) {
+            return;
+        }
+
+        String pin = PlainTextComponentSerializer.plainText().serialize(event.message()).trim();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!player.isOnline() || !authManager.needsAuthentication(player.getUniqueId())) {
+                return;
+            }
+            plugin.handleAuthResult(player, authManager.submitPin(player, pin));
+        });
     }
 
     @EventHandler
@@ -112,9 +130,7 @@ public final class AuthListener implements Listener {
 
     @EventHandler
     public void onInventoryOpen(InventoryOpenEvent event) {
-        if (event.getPlayer() instanceof Player player
-                && locked(player)
-                && !(event.getInventory().getHolder() instanceof PinGuiHolder)) {
+        if (event.getPlayer() instanceof Player player && locked(player)) {
             event.setCancelled(true);
         }
     }
