@@ -75,12 +75,49 @@ public final class AccountStore {
         data.set(base + ".pin-hash", record.pinHash());
         data.set(base + ".ip-hmac", record.ipHmac());
         data.set(base + ".created-at", record.createdAt());
+        data.set(base + ".pin-reset-required", record.pinResetRequired());
         saveUnchecked();
     }
 
     public synchronized void updateUsername(UUID uuid, String username) {
         if (data.contains("accounts." + uuid)) {
             data.set("accounts." + uuid + ".username", username);
+            saveUnchecked();
+        }
+    }
+
+    public synchronized Optional<AccountRecord> resetTrustedIp(String query) {
+        Optional<AccountRecord> account = findByQuery(query);
+        account.ifPresent(record -> {
+            data.set("accounts." + record.uuid() + ".ip-hmac", null);
+            saveUnchecked();
+        });
+        return account;
+    }
+
+    public synchronized Optional<AccountRecord> requirePinReset(String query) {
+        Optional<AccountRecord> account = findByQuery(query);
+        account.ifPresent(record -> {
+            data.set("accounts." + record.uuid() + ".pin-reset-required", true);
+            saveUnchecked();
+        });
+        return account;
+    }
+
+    public synchronized void updateTrustedIp(UUID uuid, String ipHmac) {
+        String base = "accounts." + uuid;
+        if (data.contains(base)) {
+            data.set(base + ".ip-hmac", ipHmac);
+            saveUnchecked();
+        }
+    }
+
+    public synchronized void updatePin(UUID uuid, String salt, String hash) {
+        String base = "accounts." + uuid;
+        if (data.contains(base)) {
+            data.set(base + ".pin-salt", salt);
+            data.set(base + ".pin-hash", hash);
+            data.set(base + ".pin-reset-required", false);
             saveUnchecked();
         }
     }
@@ -107,10 +144,11 @@ public final class AccountStore {
             String hash = data.getString(base + ".pin-hash");
             String ipHmac = data.getString(base + ".ip-hmac");
             long createdAt = data.getLong(base + ".created-at");
-            if (username == null || salt == null || hash == null || ipHmac == null) {
+            boolean pinResetRequired = data.getBoolean(base + ".pin-reset-required", false);
+            if (username == null || salt == null || hash == null) {
                 return Optional.empty();
             }
-            return Optional.of(new AccountRecord(uuid, username, salt, hash, ipHmac, createdAt));
+            return Optional.of(new AccountRecord(uuid, username, salt, hash, ipHmac, createdAt, pinResetRequired));
         } catch (IllegalArgumentException exception) {
             plugin.getLogger().warning("Ignoring invalid account UUID in accounts.yml: " + key);
             return Optional.empty();
