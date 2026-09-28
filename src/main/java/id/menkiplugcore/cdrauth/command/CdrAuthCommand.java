@@ -63,6 +63,15 @@ public final class CdrAuthCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
+        if (action.equals("audit")) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage(plugin.prefix() + plugin.msg("messages.admin-gui-player-only"));
+                return true;
+            }
+            adminGui.openAudit(player, args.length >= 2 ? args[1] : null);
+            return true;
+        }
+
         if (args.length < 2) {
             sender.sendMessage(plugin.prefix() + plugin.msg("messages.admin-usage"));
             return true;
@@ -168,7 +177,7 @@ public final class CdrAuthCommand implements CommandExecutor, TabCompleter {
             return List.of();
         }
         if (args.length == 1) {
-            return List.of("admin", "status", "resetip", "resetpin", "unreg").stream()
+            return List.of("admin", "audit", "status", "resetip", "resetpin", "unreg").stream()
                     .filter(value -> value.startsWith(args[0].toLowerCase()))
                     .toList();
         }
