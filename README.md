@@ -4,6 +4,36 @@ Crossplay PIN authentication plugin for Paper servers.
 
 CdrAuth provides a GUI-based register/login flow inspired by AuthMe. Java players use an inventory PIN keypad; Bedrock players use a native Floodgate form when Floodgate is available.
 
+## v0.5.0 Admin GUI
+
+Admins can now manage registered CdrAuth accounts through an inventory GUI:
+
+```text
+/cdrauth admin
+/cdrauth admin <player|uuid>
+```
+
+`/cdrauth admin` opens the paginated account browser. `/cdrauth admin <player|uuid>` acts as a direct search and opens the matching account detail screen.
+
+Features:
+
+- 45 registered accounts per page.
+- Player-head account entries with online state, trusted-IP state, and PIN state.
+- Previous/next page navigation and refresh.
+- Detailed account view with UUID, registration date, auth session state, trusted-IP state, and PIN state.
+- Reset Trusted IP action.
+- Reset PIN action.
+- Unregister account action.
+- Confirmation screen before every account-changing action.
+- Search hint plus command-based direct lookup by username or UUID.
+- Existing `/cdrauth status`, `resetip`, `resetpin`, and `unreg` commands remain available.
+
+Admin GUI actions intentionally dispatch the same administrative commands used by the command-line interface. This keeps the v0.3.0 safety rules in one code path: reset-IP is still blocked while reset-PIN is pending, reset-PIN still requires a bound trusted IP, and unregister still forces a fresh registration when the target is online.
+
+All Admin GUI titles, labels, lore, and confirmation text are configurable in `config.yml` under `messages.admin-gui-*`.
+
+Permission: `cdrauth.admin` (default: op)
+
 ## v0.4.0 Change PIN
 
 Players can securely change their own PIN without asking an admin:
@@ -119,13 +149,14 @@ security:
     lockout-seconds: 300
 ```
 
-The brute-force state is memory-only in v0.4.0. A full server restart clears temporary failure windows and lockouts; persistent security history remains available in `security.log`.
+The brute-force state is memory-only in v0.5.0. A full server restart clears temporary failure windows and lockouts; persistent security history remains available in `security.log`.
 
 ## Crossplay UI
 
 - Java Edition: inventory-style numeric keypad.
 - Bedrock Edition with Floodgate: native Bedrock form keypad.
 - Register, login, reset-PIN, reset-IP rebind, and player change-PIN flows use the same crossplay keypad model.
+- Admin GUI uses the native Bukkit inventory interface and is intended for Java/Paper server administration.
 - If Floodgate is unavailable, CdrAuth continues to work for Java players.
 
 ## Platform
