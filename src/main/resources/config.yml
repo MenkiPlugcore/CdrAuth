@@ -2,7 +2,7 @@ security:
   # Numeric PIN length used by both Java and Bedrock UI.
   pin-length: 6
 
-  # Kick after this many wrong login attempts.
+  # Kick after this many wrong PIN attempts in one login session.
   max-attempts: 5
 
   # PBKDF2-HMAC-SHA256 work factor for PIN hashing.
@@ -12,8 +12,29 @@ security:
   trusted-ip-auto-login: true
 
   # One trusted IP can only belong to one registered account.
-  # If another account joins from the same trusted IP, CdrAuth blocks it and shows the bound account.
+  # Disable this if several legitimate players share the same public IP / CGNAT.
   unique-ip-ownership: true
+
+  # Player must finish register/login within this time or they are kicked.
+  authentication-timeout-seconds: 60
+
+  # security.log contains security events and short HMAC IP fingerprints, never plaintext IPs.
+  audit-log-enabled: true
+
+  cooldown:
+    # Wrong PIN attempts receive a progressive delay: base * attempt, capped by max.
+    base-seconds: 2
+    max-seconds: 15
+
+  bruteforce:
+    # Failed PIN attempts survive reconnects in memory for this rolling window.
+    window-seconds: 600
+
+    # Lock account+IP after this many wrong PINs inside the window.
+    max-failures: 10
+
+    # Temporary lock duration after the brute-force threshold is reached.
+    lockout-seconds: 300
 
   # A different IP may still log in after entering the correct PIN, but it is session-only.
   # The trusted IP is never replaced automatically. Admin must /cdrauth unreg <player> first.
@@ -32,9 +53,13 @@ messages:
   logged-in: '&aLogin berhasil. Selamat datang!'
   logged-in-new-ip: '&aPIN benar. &eLogin sesi ini diizinkan, tetapi IP baru tidak disimpan sebagai trusted IP.'
   pin-invalid: '&cPIN harus terdiri dari tepat %length% angka.'
-  pin-mismatch: '&cPIN konfirmasi tidak sama. Silakan buat PIN lagi.'
+  pin-mismatch: '&cPIN konfirmasi tidak sama. Tunggu sebentar lalu buat PIN lagi.'
   wrong-pin: '&cPIN salah. Sisa percobaan: &f%remaining%'
-  too-many-attempts: '&cTerlalu banyak percobaan PIN yang salah.'
+  wrong-pin-cooldown: '&cPIN salah. &7Sisa percobaan: &f%remaining% &8| &7Coba lagi dalam &e%seconds% detik&7.'
+  cooldown-active: '&eTerlalu cepat. &7Coba lagi dalam &f%seconds% detik&7.'
+  too-many-attempts: '&cTerlalu banyak percobaan PIN yang salah pada sesi ini. Silakan masuk kembali.'
+  bruteforce-locked: '&cLogin dikunci sementara karena terlalu banyak PIN salah. Coba lagi dalam %seconds% detik.'
+  authentication-timeout: '&cWaktu autentikasi habis (%seconds% detik). Silakan masuk kembali.'
   account-collision: '&cIP ini sudah terikat ke akun &f%player%&c. Gunakan akun tersebut atau hubungi admin untuk unregister.'
   no-address: '&cAlamat IP koneksi tidak dapat dibaca. Login ditolak demi keamanan.'
   gui-login-title: '&0CdrAuth • Login'
