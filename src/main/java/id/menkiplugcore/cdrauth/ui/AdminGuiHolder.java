@@ -10,7 +10,8 @@ final class AdminGuiHolder implements InventoryHolder {
     enum View {
         LIST,
         DETAIL,
-        CONFIRM
+        CONFIRM,
+        AUDIT
     }
 
     enum Action {
@@ -23,13 +24,19 @@ final class AdminGuiHolder implements InventoryHolder {
     private final int page;
     private final UUID target;
     private final Action action;
+    private final String auditEvent;
     private Inventory inventory;
 
     AdminGuiHolder(View view, int page, UUID target, Action action) {
+        this(view, page, target, action, "ALL");
+    }
+
+    AdminGuiHolder(View view, int page, UUID target, Action action, String auditEvent) {
         this.view = view;
         this.page = page;
         this.target = target;
         this.action = action;
+        this.auditEvent = auditEvent == null || auditEvent.isBlank() ? "ALL" : auditEvent;
     }
 
     View view() {
@@ -46,6 +53,10 @@ final class AdminGuiHolder implements InventoryHolder {
 
     Action action() {
         return action;
+    }
+
+    String auditEvent() {
+        return auditEvent;
     }
 
     void inventory(Inventory inventory) {
