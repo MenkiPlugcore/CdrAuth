@@ -45,8 +45,10 @@ public final class CdrAuthPlugin extends JavaPlugin {
         }
 
         getLogger().info("CdrAuth v" + getDescription().getVersion() + " enabled.");
-        getLogger().info("PIN hashing: PBKDF2-HMAC-SHA256 | strict IP binding: "
-                + getConfig().getBoolean("security.strict-ip-binding", true));
+        getLogger().info("PIN hashing: PBKDF2-HMAC-SHA256 | trusted IP auto-login: "
+                + getConfig().getBoolean("security.trusted-ip-auto-login", true)
+                + " | unique IP ownership: "
+                + getConfig().getBoolean("security.unique-ip-ownership", true));
         getLogger().info("Floodgate native UI: " + (bedrockPinUi.isAvailable() ? "available" : "not detected (Java GUI fallback)"));
     }
 
