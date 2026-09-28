@@ -3,7 +3,7 @@ package id.menkiplugcore.cdrauth.ui;
 import id.menkiplugcore.cdrauth.CdrAuthPlugin;
 import id.menkiplugcore.cdrauth.auth.AuthStage;
 import org.bukkit.entity.Player;
-import org.geysermc.cumulus.form.SimpleForm;
+import org.geysermc.cumulus.form.CustomForm;
 import org.geysermc.floodgate.api.FloodgateApi;
 
 import java.util.UUID;
@@ -27,31 +27,15 @@ final class FloodgateBridge {
         }
     }
 
-    boolean send(Player player, String masked) {
+    boolean send(Player player) {
         try {
-            SimpleForm.Builder form = SimpleForm.builder()
+            int length = plugin.authManager().pinLength();
+            CustomForm.Builder form = CustomForm.builder()
                     .title(title(player))
-                    .content("PIN: " + masked + "\n\nPilih angka di bawah.");
+                    .label("Masukkan PIN " + length + " digit. PIN tidak dikirim melalui chat.")
+                    .input("PIN", "Contoh: " + "1".repeat(length));
 
-            for (int number = 1; number <= 9; number++) {
-                form.button(Integer.toString(number));
-            }
-            form.button("⌫ Hapus");
-            form.button("0");
-            form.button("✔ Konfirmasi");
-
-            form.validResultHandler(response -> {
-                int button = response.clickedButtonId();
-                if (button >= 0 && button <= 8) {
-                    owner.digit(player, Integer.toString(button + 1));
-                } else if (button == 9) {
-                    owner.backspace(player);
-                } else if (button == 10) {
-                    owner.digit(player, "0");
-                } else if (button == 11) {
-                    owner.submit(player);
-                }
-            });
+            form.validResultHandler(response -> owner.submit(player, response.asInput(0)));
             form.closedOrInvalidResultHandler(() -> owner.closed(player));
             return api.sendForm(player.getUniqueId(), form);
         } catch (Throwable throwable) {
