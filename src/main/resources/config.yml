@@ -15,11 +15,16 @@ security:
   # Disable this if several legitimate players share the same public IP / CGNAT.
   unique-ip-ownership: true
 
-  # Player must finish register/login within this time or they are kicked.
+  # Player must finish register/login/change-PIN within this time or they are kicked.
   authentication-timeout-seconds: 60
 
   # security.log contains security events and short HMAC IP fingerprints, never plaintext IPs.
   audit-log-enabled: true
+
+  change-pin:
+    # Recommended: only allow /pin from the account's trusted IP.
+    # The old PIN must still be verified even when this is false.
+    require-trusted-ip: true
 
   cooldown:
     # Wrong PIN attempts receive a progressive delay: base * attempt, capped by max.
@@ -62,6 +67,25 @@ messages:
   pin-reset-untrusted-ip: '&cReset PIN hanya dapat diselesaikan dari trusted IP akun. Hubungi admin jika trusted IP juga perlu di-reset.'
   pin-reset-no-trusted-ip: '&cReset PIN tidak dapat dilanjutkan karena akun sedang tidak memiliki trusted IP. Selesaikan reset IP terlebih dahulu.'
 
+  # Player change-PIN flow (/pin or /changepin).
+  change-pin-start: '&7Masukkan &ePIN lama &7untuk memulai perubahan PIN.'
+  change-pin-new: '&7PIN lama benar. Buat PIN baru sebanyak &b%length% digit&7.'
+  change-pin-confirm: '&7Masukkan ulang PIN baru untuk konfirmasi.'
+  change-pin-success: '&aPIN berhasil diganti. Gunakan PIN baru untuk autentikasi berikutnya.'
+  change-pin-same: '&cPIN baru tidak boleh sama dengan PIN lama. Pilih PIN lain.'
+  change-pin-mismatch: '&cKonfirmasi PIN baru tidak sama. Silakan masukkan PIN baru lagi.'
+  change-pin-old-wrong: '&cPIN lama salah. &7Sisa percobaan: &f%remaining% &8| &7Coba lagi dalam &e%seconds% detik&7.'
+  change-pin-too-many-attempts: '&cTerlalu banyak percobaan PIN lama yang salah. Silakan masuk kembali dan coba nanti.'
+  change-pin-locked: '&cPerubahan PIN dikunci sementara karena terlalu banyak PIN lama yang salah. Coba lagi dalam %seconds% detik.'
+  change-pin-not-registered: '&cAkun belum terdaftar di CdrAuth.'
+  change-pin-not-authenticated: '&cSelesaikan autentikasi akun terlebih dahulu sebelum mengganti PIN.'
+  change-pin-reset-pending: '&cTidak dapat mengganti PIN sendiri karena akun sedang menunggu reset PIN dari admin.'
+  change-pin-no-trusted-ip: '&cTidak dapat mengganti PIN karena trusted IP akun sedang kosong. Selesaikan reset IP terlebih dahulu.'
+  change-pin-untrusted-ip: '&cPerubahan PIN hanya diizinkan dari trusted IP akun.'
+  change-pin-account-unavailable: '&cData akun berubah saat proses ganti PIN. Proses dibatalkan.'
+  change-pin-player-only: '&cPerintah ini hanya dapat digunakan oleh player.'
+  change-pin-no-permission: '&cKamu tidak memiliki izin untuk mengganti PIN.'
+
   pin-invalid: '&cPIN harus terdiri dari tepat %length% angka.'
   pin-mismatch: '&cPIN konfirmasi tidak sama. Tunggu sebentar lalu buat PIN lagi.'
   wrong-pin: '&cPIN salah. Sisa percobaan: &f%remaining%'
@@ -78,6 +102,9 @@ messages:
   gui-confirm-title: '&0CdrAuth • Confirm PIN'
   gui-reset-pin-title: '&0CdrAuth • Reset PIN'
   gui-confirm-reset-pin-title: '&0CdrAuth • Confirm New PIN'
+  gui-change-pin-verify-title: '&0CdrAuth • Old PIN'
+  gui-change-pin-new-title: '&0CdrAuth • New PIN'
+  gui-change-pin-confirm-title: '&0CdrAuth • Confirm New PIN'
   gui-pin-display: '&bPIN: &f%pin%'
   gui-backspace: '&e⌫ Hapus'
   gui-submit: '&a✔ Konfirmasi'
