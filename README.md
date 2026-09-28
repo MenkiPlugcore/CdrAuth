@@ -2,11 +2,39 @@
 
 Crossplay PIN authentication plugin for Paper servers.
 
-CdrAuth provides a GUI-based register/login flow inspired by AuthMe. Java players use an inventory PIN keypad; Bedrock players use a native Floodgate form when Floodgate is available.
+CdrAuth uses platform-specific PIN input: Java Edition enters PINs through private intercepted chat, while Bedrock Edition uses a native Floodgate form when Floodgate is available.
+
+## v0.6.2 Java Chat PIN Input
+
+Java Edition no longer uses a keypad or Anvil GUI for PIN entry.
+
+Java flow:
+
+```text
+CdrAuth asks for the PIN
+  -> player types 123456 in Minecraft chat
+  -> AsyncChatEvent is cancelled before broadcast
+  -> CdrAuth reads the numeric value privately
+  -> authentication continues
+```
+
+The PIN message is not sent to other players. CdrAuth does not write the plaintext PIN into its audit log. Bedrock players continue to use the native Floodgate input form introduced in v0.6.1.
+
+This input split applies to every sensitive PIN flow:
+
+- first registration
+- registration confirmation
+- login
+- trusted-IP rebind
+- admin PIN reset
+- `/pin` old-PIN verification
+- new-PIN entry and confirmation
+
+If a Floodgate form cannot be delivered to a Bedrock player, CdrAuth can fall back to the same private cancelled-chat input path for that session.
 
 ## v0.6.0 Audit Log
 
-CdrAuth security history is now queryable from the Admin GUI while continuing to use the same human-readable `plugins/CdrAuth/security.log` file.
+CdrAuth security history is queryable from the Admin GUI while continuing to use the same human-readable `plugins/CdrAuth/security.log` file.
 
 Admin shortcuts:
 
@@ -135,22 +163,23 @@ Permission: `cdrauth.admin`
 
 ## Core account behavior
 
-- First join: register a numeric PIN through GUI and confirm it.
+- First join: register a numeric PIN and confirm it.
+- Java enters PINs through private cancelled chat; Bedrock uses a native Floodgate form.
 - The registration IP becomes the account's permanent trusted IP.
 - Future joins from the same trusted IP are logged in automatically without asking for the PIN again.
 - A join from a different IP must enter the correct PIN.
 - A different IP is authorized for that session only and does not replace the trusted IP.
 - PINs are never stored in plaintext: PBKDF2-HMAC-SHA256 with per-account salt is used.
 - Trusted IPs are stored as HMAC-SHA256 fingerprints using a locally generated secret rather than plaintext addresses.
-- Before authentication or while a sensitive PIN workflow is active, movement, chat, commands, inventory, interactions, item pickup/drop, and damage are blocked.
+- Before authentication or while a sensitive PIN workflow is active, movement, commands, inventory, interactions, item pickup/drop, and damage are blocked; Java chat is reserved for private PIN submission during that state.
 
-The brute-force state is memory-only in v0.6.0. A full server restart clears temporary failure windows and lockouts; persistent security history remains available in active and rotated `security.log` files.
+The brute-force state is memory-only in v0.6.2. A full server restart clears temporary failure windows and lockouts; persistent security history remains available in active and rotated `security.log` files.
 
-## Crossplay UI
+## Crossplay Input
 
-- Java Edition: inventory-style numeric keypad.
-- Bedrock Edition with Floodgate: native Bedrock form keypad.
-- Register, login, reset-PIN, reset-IP rebind, and player change-PIN flows use the same crossplay keypad model.
+- Java Edition: numeric PIN typed into Minecraft chat; the authentication chat event is cancelled before broadcast and consumed by CdrAuth.
+- Bedrock Edition with Floodgate: native Bedrock `CustomForm` text input.
+- Bedrock falls back to private chat only if native form delivery fails.
 - Admin GUI and audit viewer use the native Bukkit inventory interface.
 - If Floodgate is unavailable, CdrAuth continues to work for Java players.
 
