@@ -2,6 +2,7 @@ package id.menkiplugcore.cdrauth.command;
 
 import id.menkiplugcore.cdrauth.CdrAuthPlugin;
 import id.menkiplugcore.cdrauth.auth.AuthManager;
+import id.menkiplugcore.cdrauth.auth.SecurityAuditLogger;
 import id.menkiplugcore.cdrauth.storage.AccountRecord;
 import id.menkiplugcore.cdrauth.storage.AccountStore;
 import id.menkiplugcore.cdrauth.ui.AdminGui;
@@ -14,6 +15,7 @@ import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -28,12 +30,21 @@ public final class CdrAuthCommand implements CommandExecutor, TabCompleter {
     private final AccountStore store;
     private final AuthManager authManager;
     private final AdminGui adminGui;
+    private final SecurityAuditLogger auditLogger;
 
     public CdrAuthCommand(CdrAuthPlugin plugin, AccountStore store, AuthManager authManager, AdminGui adminGui) {
         this.plugin = plugin;
         this.store = store;
         this.authManager = authManager;
         this.adminGui = adminGui;
+
+        SecurityAuditLogger logger = null;
+        try {
+            logger = new SecurityAuditLogger(plugin);
+        } catch (IOException exception) {
+            plugin.getLogger().warning("Could not initialize admin audit logger: " + exception.getMessage());
+        }
+        this.auditLogger = logger;
     }
 
     @Override
@@ -87,6 +98,7 @@ public final class CdrAuthCommand implements CommandExecutor, TabCompleter {
             }
 
             AccountRecord account = removed.get();
+            auditAdmin("ADMIN_UNREGISTER", sender, account, "accountRemoved=true");
             Player online = Bukkit.getPlayer(account.uuid());
             if (online != null) {
                 authManager.prepareRegistration(online);
@@ -109,6 +121,7 @@ public final class CdrAuthCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
+            auditAdmin("ADMIN_RESET_IP", sender, account, "trustedIpCleared=true");
             store.resetTrustedIp(query);
             Player online = Bukkit.getPlayer(account.uuid());
             if (online != null && authManager.prepareIpRebind(online)) {
@@ -131,6 +144,7 @@ public final class CdrAuthCommand implements CommandExecutor, TabCompleter {
                 return true;
             }
 
+            auditAdmin("ADMIN_RESET_PIN", sender, account, "pinResetRequired=true");
             store.requirePinReset(query);
             Player online = Bukkit.getPlayer(account.uuid());
             if (online != null && authManager.preparePinReset(online)) {
@@ -169,6 +183,22 @@ public final class CdrAuthCommand implements CommandExecutor, TabCompleter {
 
         sender.sendMessage(plugin.prefix() + plugin.msg("messages.admin-usage"));
         return true;
+    }
+
+    private void auditAdmin(String event, CommandSender actor, AccountRecord target, String detail) {
+        if (auditLogger == null) {
+            return;
+        }
+        String fingerprint = target.hasTrustedIp()
+                ? target.ipHmac().substring(0, Math.min(12, target.ipHmac().length()))
+                : "none";
+        auditLogger.log(
+                event,
+                target.username(),
+                target.uuid().toString(),
+                fingerprint,
+                "actor=" + actor.getName() + " " + detail
+        );
     }
 
     @Override
