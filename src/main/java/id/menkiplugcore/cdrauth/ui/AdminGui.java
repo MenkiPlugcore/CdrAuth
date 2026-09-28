@@ -1,7 +1,9 @@
 package id.menkiplugcore.cdrauth.ui;
 
 import id.menkiplugcore.cdrauth.CdrAuthPlugin;
+import id.menkiplugcore.cdrauth.auth.AuditEntry;
 import id.menkiplugcore.cdrauth.auth.AuthManager;
+import id.menkiplugcore.cdrauth.auth.SecurityAuditLogger;
 import id.menkiplugcore.cdrauth.storage.AccountRecord;
 import id.menkiplugcore.cdrauth.storage.AccountStore;
 import org.bukkit.Bukkit;
@@ -16,6 +18,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -32,11 +35,20 @@ public final class AdminGui implements Listener {
     private final CdrAuthPlugin plugin;
     private final AccountStore store;
     private final AuthManager authManager;
+    private final SecurityAuditLogger auditLogger;
 
     public AdminGui(CdrAuthPlugin plugin, AccountStore store, AuthManager authManager) {
         this.plugin = plugin;
         this.store = store;
         this.authManager = authManager;
+
+        SecurityAuditLogger reader = null;
+        try {
+            reader = new SecurityAuditLogger(plugin);
+        } catch (IOException exception) {
+            plugin.getLogger().warning("Could not initialize CdrAuth audit viewer: " + exception.getMessage());
+        }
+        this.auditLogger = reader;
     }
 
     public void openList(Player admin, int requestedPage) {
@@ -77,6 +89,9 @@ public final class AdminGui implements Listener {
                 plugin.msg("messages.admin-gui-page", "%page%", Integer.toString(page + 1), "%pages%", Integer.toString(maxPage + 1)),
                 plugin.msg("messages.admin-gui-refresh-lore")
         )));
+        inventory.setItem(51, item(Material.WRITABLE_BOOK, plugin.msg("messages.admin-gui-audit"), List.of(
+                plugin.msg("messages.admin-gui-audit-global-lore")
+        )));
         if (page < maxPage) {
             inventory.setItem(53, item(Material.ARROW, plugin.msg("messages.admin-gui-next"), List.of()));
         }
@@ -91,6 +106,20 @@ public final class AdminGui implements Listener {
             return false;
         }
         openDetail(admin, record.get().uuid(), 0);
+        return true;
+    }
+
+    public boolean openAudit(Player admin, String query) {
+        if (query == null || query.isBlank()) {
+            openAudit(admin, null, 0, "ALL");
+            return true;
+        }
+        Optional<AccountRecord> record = store.findByQuery(query);
+        if (record.isEmpty()) {
+            admin.sendMessage(plugin.prefix() + plugin.msg("messages.admin-not-found"));
+            return false;
+        }
+        openAudit(admin, record.get().uuid(), 0, "ALL");
         return true;
     }
 
@@ -125,6 +154,9 @@ public final class AdminGui implements Listener {
                 plugin.msg("messages.admin-gui-unreg-lore-2")
         )));
         inventory.setItem(18, item(Material.ARROW, plugin.msg("messages.admin-gui-back"), List.of()));
+        inventory.setItem(20, item(Material.WRITABLE_BOOK, plugin.msg("messages.admin-gui-audit"), List.of(
+                plugin.msg("messages.admin-gui-audit-player-lore", "%player%", record.username())
+        )));
         inventory.setItem(22, item(Material.CLOCK, plugin.msg("messages.admin-gui-created"), List.of(
                 "§f" + DATE_FORMAT.format(Instant.ofEpochMilli(record.createdAt()))
         )));
@@ -154,6 +186,55 @@ public final class AdminGui implements Listener {
         admin.openInventory(inventory);
     }
 
+    private void openAudit(Player admin, UUID target, int requestedPage, String eventFilter) {
+        if (auditLogger == null) {
+            admin.sendMessage(plugin.prefix() + plugin.msg("messages.admin-audit-unavailable"));
+            return;
+        }
+
+        int maxEntries = Math.max(PAGE_SIZE, Math.min(500, plugin.getConfig().getInt("security.audit.viewer-max-entries", 500)));
+        List<AuditEntry> entries = auditLogger.recent(target, eventFilter, maxEntries);
+        int maxPage = Math.max(0, (entries.size() - 1) / PAGE_SIZE);
+        int page = Math.max(0, Math.min(requestedPage, maxPage));
+        String targetLabel = target == null
+                ? "ALL"
+                : store.find(target).map(AccountRecord::username).orElse(target.toString().substring(0, 8));
+
+        AdminGuiHolder holder = new AdminGuiHolder(AdminGuiHolder.View.AUDIT, page, target, null, eventFilter);
+        Inventory inventory = Bukkit.createInventory(holder, 54, plugin.msg(
+                "messages.admin-audit-title",
+                "%target%", targetLabel,
+                "%event%", eventFilter
+        ));
+        holder.inventory(inventory);
+
+        int from = page * PAGE_SIZE;
+        int to = Math.min(entries.size(), from + PAGE_SIZE);
+        for (int index = from; index < to; index++) {
+            inventory.setItem(index - from, auditItem(entries.get(index)));
+        }
+
+        if (page > 0) {
+            inventory.setItem(45, item(Material.ARROW, plugin.msg("messages.admin-gui-prev"), List.of()));
+        }
+        inventory.setItem(47, item(Material.ARROW, plugin.msg("messages.admin-gui-back"), List.of()));
+        inventory.setItem(48, item(Material.HOPPER, plugin.msg(
+                "messages.admin-audit-filter",
+                "%event%", eventFilter
+        ), List.of(plugin.msg("messages.admin-audit-filter-lore"))));
+        inventory.setItem(49, item(Material.CLOCK, plugin.msg(
+                "messages.admin-audit-summary",
+                "%entries%", Integer.toString(entries.size()),
+                "%page%", Integer.toString(page + 1),
+                "%pages%", Integer.toString(maxPage + 1)
+        ), List.of(plugin.msg("messages.admin-audit-refresh-lore"))));
+        if (page < maxPage) {
+            inventory.setItem(53, item(Material.ARROW, plugin.msg("messages.admin-gui-next"), List.of()));
+        }
+
+        admin.openInventory(inventory);
+    }
+
     @EventHandler
     public void onClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player admin)) {
@@ -178,6 +259,7 @@ public final class AdminGui implements Listener {
             case LIST -> handleListClick(admin, holder, slot);
             case DETAIL -> handleDetailClick(admin, holder, slot);
             case CONFIRM -> handleConfirmClick(admin, holder, slot);
+            case AUDIT -> handleAuditClick(admin, holder, slot);
         }
     }
 
@@ -197,6 +279,8 @@ public final class AdminGui implements Listener {
             admin.sendMessage(plugin.prefix() + plugin.msg("messages.admin-gui-search-help"));
         } else if (slot == 49) {
             openList(admin, holder.page());
+        } else if (slot == 51) {
+            openAudit(admin, null, 0, "ALL");
         } else if (slot == 53) {
             int maxPage = Math.max(0, (store.listAll().size() - 1) / PAGE_SIZE);
             if (holder.page() < maxPage) {
@@ -215,6 +299,7 @@ public final class AdminGui implements Listener {
             case 12 -> openConfirm(admin, holder.target(), holder.page(), AdminGuiHolder.Action.RESET_PIN);
             case 16 -> openConfirm(admin, holder.target(), holder.page(), AdminGuiHolder.Action.UNREGISTER);
             case 18 -> openList(admin, holder.page());
+            case 20 -> openAudit(admin, holder.target(), 0, "ALL");
             case 14 -> openDetail(admin, holder.target(), holder.page());
             default -> {
             }
@@ -242,6 +327,50 @@ public final class AdminGui implements Listener {
 
         admin.closeInventory();
         Bukkit.dispatchCommand(admin, command);
+    }
+
+    private void handleAuditClick(Player admin, AdminGuiHolder holder, int slot) {
+        if (slot == 45 && holder.page() > 0) {
+            openAudit(admin, holder.target(), holder.page() - 1, holder.auditEvent());
+        } else if (slot == 47) {
+            if (holder.target() == null) {
+                openList(admin, 0);
+            } else {
+                openDetail(admin, holder.target(), 0);
+            }
+        } else if (slot == 48) {
+            openAudit(admin, holder.target(), 0, nextAuditEvent(holder.target(), holder.auditEvent()));
+        } else if (slot == 49) {
+            openAudit(admin, holder.target(), holder.page(), holder.auditEvent());
+        } else if (slot == 53) {
+            int maxEntries = Math.max(PAGE_SIZE, Math.min(500, plugin.getConfig().getInt("security.audit.viewer-max-entries", 500)));
+            int size = auditLogger == null ? 0 : auditLogger.recent(holder.target(), holder.auditEvent(), maxEntries).size();
+            int maxPage = Math.max(0, (size - 1) / PAGE_SIZE);
+            if (holder.page() < maxPage) {
+                openAudit(admin, holder.target(), holder.page() + 1, holder.auditEvent());
+            }
+        }
+    }
+
+    private String nextAuditEvent(UUID target, String current) {
+        if (auditLogger == null) {
+            return "ALL";
+        }
+        List<String> options = new ArrayList<>();
+        options.add("ALL");
+        for (String event : auditLogger.recentEventTypes(target, 20)) {
+            if (!event.equalsIgnoreCase("ALL") && !options.contains(event)) {
+                options.add(event);
+            }
+        }
+        int index = 0;
+        for (int i = 0; i < options.size(); i++) {
+            if (options.get(i).equalsIgnoreCase(current)) {
+                index = i;
+                break;
+            }
+        }
+        return options.get((index + 1) % options.size());
     }
 
     private ItemStack accountHead(AccountRecord record) {
@@ -273,6 +402,33 @@ public final class AdminGui implements Listener {
                 "§7PIN: " + (record.pinResetRequired() ? "§eRESET_REQUIRED" : "§aACTIVE"),
                 "§7Session: §f" + session
         ));
+    }
+
+    private ItemStack auditItem(AuditEntry entry) {
+        List<String> lore = new ArrayList<>();
+        lore.add("§7Time: §f" + DATE_FORMAT.format(entry.timestamp()));
+        lore.add("§7Player: §f" + entry.playerName());
+        lore.add("§7UUID: §8" + entry.uuid());
+        lore.add("§7IP fingerprint: §8" + entry.ipFingerprint());
+        if (entry.detail() != null && !entry.detail().isBlank()) {
+            lore.add("§7Detail: §f" + entry.detail());
+        }
+        return item(auditMaterial(entry.event()), "§b" + entry.event(), lore);
+    }
+
+    private Material auditMaterial(String event) {
+        String upper = event.toUpperCase();
+        if (upper.contains("SUCCESS") || upper.equals("AUTO_LOGIN")) {
+            return Material.EMERALD;
+        }
+        if (upper.contains("WRONG") || upper.contains("LOCK") || upper.contains("BLOCK")
+                || upper.contains("COLLISION") || upper.contains("TIMEOUT") || upper.contains("LIMIT")) {
+            return Material.REDSTONE;
+        }
+        if (upper.contains("RESET") || upper.contains("CHANGE_PIN")) {
+            return Material.TRIPWIRE_HOOK;
+        }
+        return Material.PAPER;
     }
 
     private ItemStack actionIcon(AdminGuiHolder.Action action, AccountRecord record) {
