@@ -67,6 +67,9 @@ final class FloodgateBridge {
             case CONFIRM_REGISTER -> "CdrAuth • Confirm PIN";
             case RESET_PIN -> "CdrAuth • Reset PIN";
             case CONFIRM_RESET_PIN -> "CdrAuth • Confirm New PIN";
+            case CHANGE_PIN_VERIFY -> "CdrAuth • Verify Old PIN";
+            case CHANGE_PIN_NEW -> "CdrAuth • New PIN";
+            case CONFIRM_CHANGE_PIN -> "CdrAuth • Confirm New PIN";
             case LOGIN, AUTHENTICATED -> "CdrAuth • Login";
         };
     }
