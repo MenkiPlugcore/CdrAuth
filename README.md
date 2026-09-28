@@ -4,6 +4,41 @@ Crossplay PIN authentication plugin for Paper servers.
 
 CdrAuth provides a GUI-based register/login flow inspired by AuthMe. Java players use an inventory PIN keypad; Bedrock players use a native Floodgate form when Floodgate is available.
 
+## v0.4.0 Change PIN
+
+Players can securely change their own PIN without asking an admin:
+
+```text
+/pin
+/changepin
+```
+
+Permission: `cdrauth.changepin` (default: true)
+
+Flow:
+
+```text
+/pin
+  -> verify old PIN
+  -> enter new PIN
+  -> confirm new PIN
+  -> PIN updated
+```
+
+The new PIN cannot be identical to the old PIN. Wrong old-PIN attempts use progressive cooldown, per-session attempt limits, and a dedicated brute-force bucket so PIN-change attacks do not mix with normal login counters.
+
+By default, self-service PIN changes are allowed only from the account's trusted IP:
+
+```yaml
+security:
+  change-pin:
+    require-trusted-ip: true
+```
+
+Set this to `false` if you want an already authenticated session from another IP to be allowed to change its PIN. The old PIN is still required even when this setting is disabled.
+
+Self-service PIN change is blocked while an admin reset-PIN or reset-IP recovery flow is pending. PIN-change activity is recorded in `security.log` using the same HMAC IP fingerprint policy as the rest of CdrAuth.
+
 ## v0.3.0 Account Management
 
 ### Admin commands
@@ -46,7 +81,7 @@ CdrAuth prevents `resetip` while a PIN reset is pending because removing the tru
 
 - Trusted IP auto-login remains enabled: a registered account joining from its bound IP skips the PIN screen.
 - New/untrusted IPs must enter the correct PIN and are authorized for that session only.
-- Authentication timeout kicks players who do not finish register/login within the configured time.
+- Authentication timeout kicks players who do not finish register/login/change-PIN within the configured time.
 - Wrong PIN attempts receive a progressive cooldown before another PIN can be submitted.
 - Per-session wrong-PIN limits still kick the player after too many failures.
 - A second brute-force layer tracks failures by account + HMAC IP fingerprint across reconnects in memory.
@@ -64,7 +99,7 @@ CdrAuth prevents `resetip` while a PIN reset is pending because removing the tru
 - A different IP is authorized for that session only and does not replace the trusted IP.
 - PINs are never stored in plaintext: PBKDF2-HMAC-SHA256 with per-account salt is used.
 - Trusted IPs are stored as HMAC-SHA256 fingerprints using a locally generated secret rather than plaintext addresses.
-- Before authentication, movement, chat, commands, inventory, interactions, item pickup/drop, and damage are blocked.
+- Before authentication or while a sensitive PIN workflow is active, movement, chat, commands, inventory, interactions, item pickup/drop, and damage are blocked.
 
 ## Default security values
 
@@ -73,6 +108,8 @@ security:
   max-attempts: 5
   authentication-timeout-seconds: 60
   audit-log-enabled: true
+  change-pin:
+    require-trusted-ip: true
   cooldown:
     base-seconds: 2
     max-seconds: 15
@@ -82,13 +119,13 @@ security:
     lockout-seconds: 300
 ```
 
-The brute-force state is memory-only in v0.3.0. A full server restart clears temporary failure windows and lockouts; persistent security history remains available in `security.log`.
+The brute-force state is memory-only in v0.4.0. A full server restart clears temporary failure windows and lockouts; persistent security history remains available in `security.log`.
 
 ## Crossplay UI
 
 - Java Edition: inventory-style numeric keypad.
 - Bedrock Edition with Floodgate: native Bedrock form keypad.
-- PIN reset and IP-rebind flows use the same crossplay UI.
+- Register, login, reset-PIN, reset-IP rebind, and player change-PIN flows use the same crossplay keypad model.
 - If Floodgate is unavailable, CdrAuth continues to work for Java players.
 
 ## Platform
