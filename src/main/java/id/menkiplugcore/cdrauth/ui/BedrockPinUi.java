@@ -5,14 +5,11 @@ import id.menkiplugcore.cdrauth.auth.AuthManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
-import java.util.HashMap;
-import java.util.Map;
 import java.util.UUID;
 
 public final class BedrockPinUi {
     private final CdrAuthPlugin plugin;
     private final AuthManager authManager;
-    private final Map<UUID, StringBuilder> input = new HashMap<>();
     private final FloodgateBridge bridge;
 
     public BedrockPinUi(CdrAuthPlugin plugin, AuthManager authManager) {
@@ -38,39 +35,15 @@ public final class BedrockPinUi {
     }
 
     public void open(Player player) {
-        input.put(player.getUniqueId(), new StringBuilder());
         send(player);
     }
 
-    void digit(Player player, String digit) {
+    void submit(Player player, String pin) {
         Bukkit.getScheduler().runTask(plugin, () -> {
             if (!player.isOnline() || !authManager.needsAuthentication(player.getUniqueId())) {
                 return;
             }
-            StringBuilder builder = input.computeIfAbsent(player.getUniqueId(), ignored -> new StringBuilder());
-            if (builder.length() < authManager.pinLength()) {
-                builder.append(digit);
-            }
-            send(player);
-        });
-    }
-
-    void backspace(Player player) {
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            StringBuilder builder = input.computeIfAbsent(player.getUniqueId(), ignored -> new StringBuilder());
-            if (!builder.isEmpty()) {
-                builder.deleteCharAt(builder.length() - 1);
-            }
-            if (player.isOnline() && authManager.needsAuthentication(player.getUniqueId())) {
-                send(player);
-            }
-        });
-    }
-
-    void submit(Player player) {
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            String pin = input.getOrDefault(player.getUniqueId(), new StringBuilder()).toString();
-            plugin.handleAuthResult(player, authManager.submitPin(player, pin));
+            plugin.handleAuthResult(player, authManager.submitPin(player, pin == null ? "" : pin.trim()));
         });
     }
 
@@ -83,7 +56,7 @@ public final class BedrockPinUi {
     }
 
     public void clear(UUID uuid) {
-        input.remove(uuid);
+        // Typed Bedrock forms keep no server-side PIN buffer.
     }
 
     private void send(Player player) {
@@ -91,9 +64,7 @@ public final class BedrockPinUi {
             plugin.showJavaFallback(player);
             return;
         }
-        StringBuilder builder = input.computeIfAbsent(player.getUniqueId(), ignored -> new StringBuilder());
-        String masked = "●".repeat(builder.length()) + "○".repeat(Math.max(0, authManager.pinLength() - builder.length()));
-        if (!bridge.send(player, masked)) {
+        if (!bridge.send(player)) {
             plugin.showJavaFallback(player);
         }
     }
