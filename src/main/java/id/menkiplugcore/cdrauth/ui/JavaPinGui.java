@@ -152,6 +152,9 @@ public final class JavaPinGui implements Listener {
             case CONFIRM_REGISTER -> plugin.msg("messages.gui-confirm-title");
             case RESET_PIN -> plugin.msg("messages.gui-reset-pin-title");
             case CONFIRM_RESET_PIN -> plugin.msg("messages.gui-confirm-reset-pin-title");
+            case CHANGE_PIN_VERIFY -> plugin.msg("messages.gui-change-pin-verify-title");
+            case CHANGE_PIN_NEW -> plugin.msg("messages.gui-change-pin-new-title");
+            case CONFIRM_CHANGE_PIN -> plugin.msg("messages.gui-change-pin-confirm-title");
             case LOGIN, AUTHENTICATED -> plugin.msg("messages.gui-login-title");
         };
     }
