@@ -4,6 +4,7 @@ import id.menkiplugcore.cdrauth.CdrAuthPlugin;
 import id.menkiplugcore.cdrauth.auth.AuthManager;
 import id.menkiplugcore.cdrauth.storage.AccountRecord;
 import id.menkiplugcore.cdrauth.storage.AccountStore;
+import id.menkiplugcore.cdrauth.ui.AdminGui;
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -16,7 +17,6 @@ import org.jetbrains.annotations.Nullable;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,11 +27,13 @@ public final class CdrAuthCommand implements CommandExecutor, TabCompleter {
     private final CdrAuthPlugin plugin;
     private final AccountStore store;
     private final AuthManager authManager;
+    private final AdminGui adminGui;
 
-    public CdrAuthCommand(CdrAuthPlugin plugin, AccountStore store, AuthManager authManager) {
+    public CdrAuthCommand(CdrAuthPlugin plugin, AccountStore store, AuthManager authManager, AdminGui adminGui) {
         this.plugin = plugin;
         this.store = store;
         this.authManager = authManager;
+        this.adminGui = adminGui;
     }
 
     @Override
@@ -41,12 +43,31 @@ public final class CdrAuthCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        if (args.length < 2) {
+        if (args.length == 0) {
             sender.sendMessage(plugin.prefix() + plugin.msg("messages.admin-usage"));
             return true;
         }
 
         String action = args[0].toLowerCase();
+
+        if (action.equals("admin")) {
+            if (!(sender instanceof Player player)) {
+                sender.sendMessage(plugin.prefix() + plugin.msg("messages.admin-gui-player-only"));
+                return true;
+            }
+            if (args.length >= 2) {
+                adminGui.openDetail(player, args[1]);
+            } else {
+                adminGui.openList(player, 0);
+            }
+            return true;
+        }
+
+        if (args.length < 2) {
+            sender.sendMessage(plugin.prefix() + plugin.msg("messages.admin-usage"));
+            return true;
+        }
+
         String query = args[1];
 
         if (action.equals("unreg")) {
@@ -143,19 +164,21 @@ public final class CdrAuthCommand implements CommandExecutor, TabCompleter {
 
     @Override
     public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
+        if (!sender.hasPermission("cdrauth.admin")) {
+            return List.of();
+        }
         if (args.length == 1) {
-            return List.of("status", "resetip", "resetpin", "unreg").stream()
+            return List.of("admin", "status", "resetip", "resetpin", "unreg").stream()
                     .filter(value -> value.startsWith(args[0].toLowerCase()))
                     .toList();
         }
         if (args.length == 2) {
-            List<String> names = new ArrayList<>();
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                if (player.getName().toLowerCase().startsWith(args[1].toLowerCase())) {
-                    names.add(player.getName());
-                }
-            }
-            return names;
+            String prefix = args[1].toLowerCase();
+            return store.listAll().stream()
+                    .map(AccountRecord::username)
+                    .filter(name -> name.toLowerCase().startsWith(prefix))
+                    .limit(100)
+                    .toList();
         }
         return List.of();
     }
