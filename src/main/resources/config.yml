@@ -77,9 +77,18 @@ messages:
   java-chat-change-verify-prompt: '&fGanti PIN. &7Ketik &ePIN lama %length% digit &7langsung di chat.'
   java-chat-change-new-prompt: '&fPIN lama benar. &7Ketik &bPIN baru %length% digit &7langsung di chat.'
   java-chat-change-confirm-prompt: '&fKonfirmasi PIN baru. &7Ketik ulang &bPIN %length% digit &7yang sama.'
+  java-chat-command-hint: '&7Input bisa langsung seperti &b123456 &7atau pakai &b/pin 123456&7.'
   java-chat-private-note: '&8Pesan PIN akan diblokir CdrAuth dan tidak dikirim sebagai chat publik.'
   java-chat-footer: '&8&m-------------------------------------------'
   java-chat-restored: '&a✔ Autentikasi selesai. &7Efek login dilepas dan chat normal aktif kembali.'
+
+  # Java title fallback so the player always sees what to do.
+  java-title-register: '&b&lREGISTER'
+  java-title-login: '&b&lLOGIN'
+  java-title-confirm: '&e&lCONFIRM PIN'
+  java-title-reset: '&e&lRESET PIN'
+  java-title-change: '&b&lCHANGE PIN'
+  java-title-subtitle: '&fKetik PIN %length% digit di chat atau /pin <PIN>'
 
   # Account management flows.
   ip-rebind-login-start: '&eTrusted IP akun telah di-reset. &7Masukkan PIN lama untuk mengikat IP koneksi ini sebagai trusted IP baru.'
