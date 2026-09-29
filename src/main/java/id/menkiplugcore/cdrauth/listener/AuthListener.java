@@ -2,6 +2,7 @@ package id.menkiplugcore.cdrauth.listener;
 
 import id.menkiplugcore.cdrauth.CdrAuthPlugin;
 import id.menkiplugcore.cdrauth.auth.AuthManager;
+import id.menkiplugcore.cdrauth.auth.AuthStage;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
@@ -25,7 +26,18 @@ import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 
+import java.util.EnumSet;
+import java.util.Set;
+
 public final class AuthListener implements Listener {
+    private static final Set<AuthStage> LOGIN_UX_STAGES = EnumSet.of(
+            AuthStage.REGISTER,
+            AuthStage.CONFIRM_REGISTER,
+            AuthStage.LOGIN,
+            AuthStage.RESET_PIN,
+            AuthStage.CONFIRM_RESET_PIN
+    );
+
     private final CdrAuthPlugin plugin;
     private final AuthManager authManager;
 
@@ -55,6 +67,14 @@ public final class AuthListener implements Listener {
         if (!locked(event.getPlayer()) || event.getTo() == null) {
             return;
         }
+
+        AuthStage stage = authManager.stage(event.getPlayer().getUniqueId());
+        boolean allowSlowMovement = plugin.getConfig().getBoolean("security.login-ux.allow-slow-movement", true)
+                && LOGIN_UX_STAGES.contains(stage);
+        if (allowSlowMovement) {
+            return;
+        }
+
         if (event.getFrom().getX() != event.getTo().getX()
                 || event.getFrom().getY() != event.getTo().getY()
                 || event.getFrom().getZ() != event.getTo().getZ()) {
