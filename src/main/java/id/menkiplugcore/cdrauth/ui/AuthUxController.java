@@ -66,9 +66,21 @@ public final class AuthUxController {
     }
 
     public void finish(Player player) {
+        if (restoreEffects(player)) {
+            player.sendMessage("");
+            player.sendMessage(plugin.msg("messages.java-chat-restored"));
+            player.sendMessage("");
+        }
+    }
+
+    public void cleanup(Player player) {
+        restoreEffects(player);
+    }
+
+    private boolean restoreEffects(Player player) {
         SavedEffects saved = savedEffects.remove(player.getUniqueId());
         if (saved == null) {
-            return;
+            return false;
         }
 
         player.removePotionEffect(PotionEffectType.SLOWNESS);
@@ -80,14 +92,7 @@ public final class AuthUxController {
         if (saved.blindness() != null) {
             player.addPotionEffect(saved.blindness());
         }
-
-        player.sendMessage("");
-        player.sendMessage(plugin.msg("messages.java-chat-restored"));
-        player.sendMessage("");
-    }
-
-    public void cleanup(Player player) {
-        finish(player);
+        return true;
     }
 
     private void clearChat(Player player) {
