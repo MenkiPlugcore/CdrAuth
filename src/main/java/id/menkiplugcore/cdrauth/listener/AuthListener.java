@@ -82,11 +82,38 @@ public final class AuthListener implements Listener {
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.LOWEST)
     public void onCommand(PlayerCommandPreprocessEvent event) {
-        if (locked(event.getPlayer())) {
-            event.setCancelled(true);
+        Player player = event.getPlayer();
+        if (!locked(player)) {
+            return;
         }
+
+        // All commands stay blocked while authentication is pending.
+        event.setCancelled(true);
+
+        if (!plugin.acceptsChatPin(player)) {
+            return;
+        }
+
+        String raw = event.getMessage().trim();
+        String[] parts = raw.split("\\s+", 2);
+        if (!parts[0].equalsIgnoreCase("/pin")) {
+            return;
+        }
+
+        if (parts.length < 2 || parts[1].isBlank()) {
+            Bukkit.getScheduler().runTask(plugin, () -> plugin.showAuth(player));
+            return;
+        }
+
+        String pin = parts[1].trim();
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (!player.isOnline() || !authManager.needsAuthentication(player.getUniqueId())) {
+                return;
+            }
+            plugin.handleAuthResult(player, authManager.submitPin(player, pin));
+        });
     }
 
     @EventHandler(priority = EventPriority.LOWEST)
