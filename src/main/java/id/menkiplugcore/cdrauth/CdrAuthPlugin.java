@@ -2,11 +2,13 @@ package id.menkiplugcore.cdrauth;
 
 import id.menkiplugcore.cdrauth.auth.AuthManager;
 import id.menkiplugcore.cdrauth.auth.AuthResult;
+import id.menkiplugcore.cdrauth.auth.AuthStage;
 import id.menkiplugcore.cdrauth.command.CdrAuthCommand;
 import id.menkiplugcore.cdrauth.command.PinCommand;
 import id.menkiplugcore.cdrauth.listener.AuthListener;
 import id.menkiplugcore.cdrauth.storage.AccountStore;
 import id.menkiplugcore.cdrauth.ui.AdminGui;
+import id.menkiplugcore.cdrauth.ui.AuthUxController;
 import id.menkiplugcore.cdrauth.ui.BedrockPinUi;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
@@ -23,6 +25,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
     private AuthManager authManager;
     private BedrockPinUi bedrockPinUi;
     private AdminGui adminGui;
+    private AuthUxController authUxController;
     private final Set<UUID> chatFallback = ConcurrentHashMap.newKeySet();
 
     @Override
@@ -40,6 +43,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
 
         this.bedrockPinUi = new BedrockPinUi(this, authManager);
         this.adminGui = new AdminGui(this, accountStore, authManager);
+        this.authUxController = new AuthUxController(this);
 
         getServer().getPluginManager().registerEvents(adminGui, this);
         getServer().getPluginManager().registerEvents(new AuthListener(this, authManager), this);
@@ -84,13 +88,17 @@ public final class CdrAuthPlugin extends JavaPlugin {
             return;
         }
 
-        showChatPrompt(player);
+        AuthStage stage = authManager.stage(player.getUniqueId());
+        authUxController.begin(player, stage);
+        showChatPrompt(player, stage);
     }
 
     public void showJavaFallback(Player player) {
         if (player.isOnline() && authManager.needsAuthentication(player.getUniqueId())) {
             chatFallback.add(player.getUniqueId());
-            showChatPrompt(player);
+            AuthStage stage = authManager.stage(player.getUniqueId());
+            authUxController.begin(player, stage);
+            showChatPrompt(player, stage);
         }
     }
 
@@ -103,6 +111,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
             case SUCCESS -> {
                 bedrockPinUi.clear(player.getUniqueId());
                 chatFallback.remove(player.getUniqueId());
+                authUxController.finish(player);
                 if (!result.message().isBlank()) {
                     player.sendMessage(prefix() + result.message());
                 }
@@ -118,13 +127,28 @@ public final class CdrAuthPlugin extends JavaPlugin {
     public void cleanupUi(Player player) {
         bedrockPinUi.clear(player.getUniqueId());
         chatFallback.remove(player.getUniqueId());
+        if (authUxController != null) {
+            authUxController.cleanup(player);
+        }
     }
 
-    private void showChatPrompt(Player player) {
-        player.sendMessage(prefix() + msg(
-                "messages.java-chat-pin-prompt",
-                "%length%", Integer.toString(authManager.pinLength())
-        ));
+    private void showChatPrompt(Player player, AuthStage stage) {
+        String promptPath = switch (stage) {
+            case REGISTER -> "messages.java-chat-register-prompt";
+            case CONFIRM_REGISTER -> "messages.java-chat-confirm-register-prompt";
+            case LOGIN -> "messages.java-chat-login-prompt";
+            case RESET_PIN -> "messages.java-chat-reset-pin-prompt";
+            case CONFIRM_RESET_PIN -> "messages.java-chat-confirm-reset-pin-prompt";
+            case CHANGE_PIN_VERIFY -> "messages.java-chat-change-verify-prompt";
+            case CHANGE_PIN_NEW -> "messages.java-chat-change-new-prompt";
+            case CONFIRM_CHANGE_PIN -> "messages.java-chat-change-confirm-prompt";
+            case AUTHENTICATED -> "messages.java-chat-login-prompt";
+        };
+
+        player.sendMessage(msg("messages.java-chat-header"));
+        player.sendMessage(msg(promptPath, "%length%", Integer.toString(authManager.pinLength())));
+        player.sendMessage(msg("messages.java-chat-private-note"));
+        player.sendMessage(msg("messages.java-chat-footer"));
     }
 
     public String msg(String path, String... replacements) {
