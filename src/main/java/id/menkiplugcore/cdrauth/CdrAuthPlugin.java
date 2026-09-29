@@ -31,6 +31,8 @@ public final class CdrAuthPlugin extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
+        getConfig().options().copyDefaults(true);
+        saveConfig();
 
         try {
             this.accountStore = new AccountStore(this);
@@ -66,7 +68,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
                 + getConfig().getBoolean("security.unique-ip-ownership", true)
                 + " | change PIN requires trusted IP: "
                 + getConfig().getBoolean("security.change-pin.require-trusted-ip", true));
-        getLogger().info("Java PIN input: private cancelled chat | Floodgate native UI: "
+        getLogger().info("Java PIN input: private cancelled chat + login UX | Floodgate native UI: "
                 + (bedrockPinUi.isAvailable() ? "available" : "not detected"));
     }
 
