@@ -68,7 +68,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
                 + getConfig().getBoolean("security.unique-ip-ownership", true)
                 + " | change PIN requires trusted IP: "
                 + getConfig().getBoolean("security.change-pin.require-trusted-ip", true));
-        getLogger().info("Java PIN input: private cancelled chat + login UX | Floodgate native UI: "
+        getLogger().info("Java PIN input: private cancelled chat + /pin shortcut + title prompt | Floodgate native UI: "
                 + (bedrockPinUi.isAvailable() ? "available" : "not detected"));
     }
 
@@ -93,6 +93,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
         AuthStage stage = authManager.stage(player.getUniqueId());
         authUxController.begin(player, stage);
         showChatPrompt(player, stage);
+        showJavaTitle(player, stage);
     }
 
     public void showJavaFallback(Player player) {
@@ -101,6 +102,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
             AuthStage stage = authManager.stage(player.getUniqueId());
             authUxController.begin(player, stage);
             showChatPrompt(player, stage);
+            showJavaTitle(player, stage);
         }
     }
 
@@ -114,6 +116,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
                 bedrockPinUi.clear(player.getUniqueId());
                 chatFallback.remove(player.getUniqueId());
                 authUxController.finish(player);
+                player.resetTitle();
                 if (!result.message().isBlank()) {
                     player.sendMessage(prefix() + result.message());
                 }
@@ -129,6 +132,7 @@ public final class CdrAuthPlugin extends JavaPlugin {
     public void cleanupUi(Player player) {
         bedrockPinUi.clear(player.getUniqueId());
         chatFallback.remove(player.getUniqueId());
+        player.resetTitle();
         if (authUxController != null) {
             authUxController.cleanup(player);
         }
@@ -149,8 +153,32 @@ public final class CdrAuthPlugin extends JavaPlugin {
 
         player.sendMessage(msg("messages.java-chat-header"));
         player.sendMessage(msg(promptPath, "%length%", Integer.toString(authManager.pinLength())));
+        player.sendMessage(msg(
+                "messages.java-chat-command-hint",
+                "%length%", Integer.toString(authManager.pinLength())
+        ));
         player.sendMessage(msg("messages.java-chat-private-note"));
         player.sendMessage(msg("messages.java-chat-footer"));
+    }
+
+    private void showJavaTitle(Player player, AuthStage stage) {
+        String titlePath = switch (stage) {
+            case REGISTER -> "messages.java-title-register";
+            case CONFIRM_REGISTER -> "messages.java-title-confirm";
+            case LOGIN -> "messages.java-title-login";
+            case RESET_PIN -> "messages.java-title-reset";
+            case CONFIRM_RESET_PIN -> "messages.java-title-confirm";
+            case CHANGE_PIN_VERIFY, CHANGE_PIN_NEW, CONFIRM_CHANGE_PIN -> "messages.java-title-change";
+            case AUTHENTICATED -> "messages.java-title-login";
+        };
+
+        player.sendTitle(
+                msg(titlePath),
+                msg("messages.java-title-subtitle", "%length%", Integer.toString(authManager.pinLength())),
+                10,
+                70,
+                10
+        );
     }
 
     public String msg(String path, String... replacements) {
