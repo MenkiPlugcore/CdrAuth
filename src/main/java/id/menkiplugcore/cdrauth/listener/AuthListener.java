@@ -96,11 +96,7 @@ public final class AuthListener implements Listener {
             return;
         }
 
-        // Authentication chat is always private: cancel before any viewers receive it.
         event.setCancelled(true);
-
-        // Bedrock normally uses its native form. Chat is accepted only for Java or if
-        // Floodgate form delivery failed and CdrAuth explicitly enabled chat fallback.
         if (!plugin.acceptsChatPin(player)) {
             return;
         }
@@ -114,81 +110,65 @@ public final class AuthListener implements Listener {
         });
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void hideChatFromAuthenticatingPlayers(AsyncChatEvent event) {
+        event.viewers().removeIf(viewer -> viewer instanceof Player target
+                && authManager.needsAuthentication(target.getUniqueId()));
+    }
+
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        if (locked(event.getPlayer())) {
-            event.setCancelled(true);
-        }
+        if (locked(event.getPlayer())) event.setCancelled(true);
     }
 
     @EventHandler
     public void onInteractEntity(PlayerInteractEntityEvent event) {
-        if (locked(event.getPlayer())) {
-            event.setCancelled(true);
-        }
+        if (locked(event.getPlayer())) event.setCancelled(true);
     }
 
     @EventHandler
     public void onDrop(PlayerDropItemEvent event) {
-        if (locked(event.getPlayer())) {
-            event.setCancelled(true);
-        }
+        if (locked(event.getPlayer())) event.setCancelled(true);
     }
 
     @EventHandler
     public void onSwap(PlayerSwapHandItemsEvent event) {
-        if (locked(event.getPlayer())) {
-            event.setCancelled(true);
-        }
+        if (locked(event.getPlayer())) event.setCancelled(true);
     }
 
     @EventHandler
     public void onPickup(EntityPickupItemEvent event) {
-        if (event.getEntity() instanceof Player player && locked(player)) {
-            event.setCancelled(true);
-        }
+        if (event.getEntity() instanceof Player player && locked(player)) event.setCancelled(true);
     }
 
     @EventHandler
     public void onInventoryOpen(InventoryOpenEvent event) {
-        if (event.getPlayer() instanceof Player player && locked(player)) {
-            event.setCancelled(true);
-        }
+        if (event.getPlayer() instanceof Player player && locked(player)) event.setCancelled(true);
     }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
-        if (event.getWhoClicked() instanceof Player player && locked(player)) {
-            event.setCancelled(true);
-        }
+        if (event.getWhoClicked() instanceof Player player && locked(player)) event.setCancelled(true);
     }
 
     @EventHandler
     public void onInventoryDrag(InventoryDragEvent event) {
-        if (event.getWhoClicked() instanceof Player player && locked(player)) {
-            event.setCancelled(true);
-        }
+        if (event.getWhoClicked() instanceof Player player && locked(player)) event.setCancelled(true);
     }
 
     @EventHandler
     public void onDamage(EntityDamageEvent event) {
-        if (event.getEntity() instanceof Player player && locked(player)) {
-            event.setCancelled(true);
-        }
+        if (event.getEntity() instanceof Player player && locked(player)) event.setCancelled(true);
     }
 
     @EventHandler
     public void onDamageByEntity(EntityDamageByEntityEvent event) {
-        if (event.getDamager() instanceof Player player && locked(player)) {
-            event.setCancelled(true);
-        }
+        if (event.getDamager() instanceof Player player && locked(player)) event.setCancelled(true);
     }
 
     @EventHandler
     public void onFood(FoodLevelChangeEvent event) {
-        if (event.getEntity() instanceof Player player && locked(player)) {
-            event.setCancelled(true);
-        }
+        if (event.getEntity() instanceof Player player && locked(player)) event.setCancelled(true);
     }
 
     private boolean locked(Player player) {
