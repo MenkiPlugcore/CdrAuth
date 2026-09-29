@@ -27,6 +27,18 @@ security:
     viewer-max-entries: 500
     viewer-scan-lines: 5000
 
+  # Java login/register presentation.
+  login-ux:
+    # Number of blank lines sent once when authentication begins to clear visible chat history.
+    clear-chat-lines: 80
+
+    # Potion amplifier: 0 = Slowness I, 4 = Slowness V.
+    slowness-amplifier: 4
+
+    # If true, player can move slowly while login/register is pending.
+    # Other interactions, commands, inventories, damage, pickup/drop, etc. stay locked.
+    allow-slow-movement: true
+
   change-pin:
     # Recommended: only allow /pin from the account's trusted IP.
     # The old PIN must still be verified even when this is false.
@@ -55,8 +67,19 @@ messages:
   logged-in: '&aLogin berhasil. Selamat datang!'
   logged-in-new-ip: '&aPIN benar. &eLogin sesi ini diizinkan, tetapi IP baru tidak disimpan sebagai trusted IP.'
 
-  # Java Edition PIN input. The typed chat message is cancelled and never broadcast.
-  java-chat-pin-prompt: '&7Ketik PIN &b%length% digit &7langsung di chat. &8(Pesan PIN tidak akan dipublikasikan.)'
+  # Java Edition private chat input.
+  java-chat-header: '&8&m---------------- &b&lCdrAuth &8&m----------------'
+  java-chat-register-prompt: '&fBelum terdaftar. &7Ketik &bPIN baru %length% digit &7langsung di chat.'
+  java-chat-confirm-register-prompt: '&fKonfirmasi registrasi. &7Ketik ulang &bPIN %length% digit &7yang sama.'
+  java-chat-login-prompt: '&fLogin diperlukan. &7Ketik &bPIN %length% digit &7langsung di chat.'
+  java-chat-reset-pin-prompt: '&fReset PIN aktif. &7Ketik &bPIN baru %length% digit &7langsung di chat.'
+  java-chat-confirm-reset-pin-prompt: '&fKonfirmasi PIN baru. &7Ketik ulang &bPIN %length% digit &7yang sama.'
+  java-chat-change-verify-prompt: '&fGanti PIN. &7Ketik &ePIN lama %length% digit &7langsung di chat.'
+  java-chat-change-new-prompt: '&fPIN lama benar. &7Ketik &bPIN baru %length% digit &7langsung di chat.'
+  java-chat-change-confirm-prompt: '&fKonfirmasi PIN baru. &7Ketik ulang &bPIN %length% digit &7yang sama.'
+  java-chat-private-note: '&8Pesan PIN akan diblokir CdrAuth dan tidak dikirim sebagai chat publik.'
+  java-chat-footer: '&8&m-------------------------------------------'
+  java-chat-restored: '&a✔ Autentikasi selesai. &7Efek login dilepas dan chat normal aktif kembali.'
 
   # Account management flows.
   ip-rebind-login-start: '&eTrusted IP akun telah di-reset. &7Masukkan PIN lama untuk mengikat IP koneksi ini sebagai trusted IP baru.'
